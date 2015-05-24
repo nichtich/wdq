@@ -74,7 +74,6 @@ function readInput() {
 			return false;
 		}
 
-		// FIXME: This doesn't recognize double backslashed before quotes
 		for ( $i = 0; $i < strlen( $input ); $i++ ) {
 			// { or }
 			if ( $doubleQuoteC % 2 === 0 && $singleQuoteC % 2 === 0 ) {
