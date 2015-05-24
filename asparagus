@@ -1,0 +1,178 @@
+#!/bin/php
+<?php
+/**
+ * CLI interface for the Wikidata query service. Build on the Wikimedia Hackathon
+ * in Lyon.
+ *
+ * @author Marius Hoch < hoo@online.de >
+ * @license GPL-2.0+
+ */
+
+$endPoint = 'https://wdqs-beta.wmflabs.org/bigdata/namespace/wdq/sparql?query=$1';
+$defaultPrefixes = 'PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX entity: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX v: <http://www.wikidata.org/prop/statement/>
+PREFIX q: <http://www.wikidata.org/prop/qualifier/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>';
+
+/**
+ * @param string $query
+ * @param string $endPoint
+ * @param string $responseFormat
+ *
+ * @return string|bool Result
+ */
+function doQuery( $query, $endPoint, $responseFormat ) {
+	$url = str_replace(
+		'$1',
+		urlencode( $query ),
+		$endPoint
+	);
+
+	$opts = array();
+	if ( $responseFormat !== null ) {
+		$opts['header'] = "Accept: $responseFormat\r\n";
+	}
+
+	$context = stream_context_create( array( 'https' => $opts, 'http' => $opts ) );
+
+	// @TODO: Better error handling
+	return @file_get_contents( $url, false, $context );
+}
+
+/**
+ * Reads the user input and returns once a full query has been entered,
+ * or the user wants to exit.
+ *
+ * @return string|bool The query, or false if the user wants to exit
+ */
+function readInput() {
+	$query = '';
+
+	// Whether we saw an initial opening {. This assumes all queries contain at least one {…} section.
+	$sawInitialBracket = false;
+
+	// Number of open { sections
+	$brackC = 0;
+
+	// Number of single quotes seen
+	$singleQuoteC = 0;
+
+	// Number of double quotes seen
+	$doubleQuoteC = 0;
+
+	// Number of consecutive backslashes seen
+	$consecutiveBackslashC = 0;
+
+	while ( $brackC !== 0 || !$sawInitialBracket ) {
+		$input = readline( $query === '' ? '> ' : '… ' );
+
+		if ( $query === '' && ( $input === 'quit' || $input === 'exit' ) ) {
+			return false;
+		}
+
+		// FIXME: This doesn't recognize double backslashed before quotes
+		for ( $i = 0; $i < strlen( $input ); $i++ ) {
+			// { or }
+			if ( $doubleQuoteC % 2 === 0 && $singleQuoteC % 2 === 0 ) {
+				if ( $input[$i] === '{' ) {
+					$sawInitialBracket = true;
+					$brackC--;
+					continue;
+				} elseif ( $input[$i] === '}' ) {
+					$brackC++;
+					continue;
+				}
+			}
+
+			// Backslashes
+			if ( $input[$i] === '\\' ) {
+				$consecutiveBackslashC++;
+				continue;
+			} else {
+				$consecutiveBackslashC = 0;
+			}
+
+			// (Unescaped) quotes
+			if ( $input[$i] === '"' && $consecutiveBackslashC % 2 === 0 ) {
+				$doubleQuoteC++;
+				continue;
+			} elseif ( $input[$i] === "'" && $consecutiveBackslashC % 2 === 0 ) {
+				$singleQuoteC++;
+				continue;
+			}
+		}
+
+		if ( preg_match( '/\\\\[gG]$/', $input ) ) {
+			$input = preg_replace( '/\\\\[gG]$/', '', $input );
+			$query .= $input;
+			return $query;
+		}
+
+		if ( $input !== '' ) {
+			$query .= $input . "\n";
+		}
+	}
+
+	// If the query didn't end on a \g or \G, read on until an empty input line occurs
+	while ( true ) {
+		$input = readline( '… ' );
+
+		if ( $input === '' ) {
+			break;
+		}
+
+		if ( preg_match( '/\\\\[gG]$/', $input ) ) {
+			$input = preg_replace( '/\\\\[gG]$/', '', $input );
+			$query .= $input;
+			return $query;
+		}
+
+		$query .= $input . "\n";
+	}
+
+	return $query;
+}
+
+if ( $argc > 1 && ( $argv[1] === '--help' || $argv[1] === '-h' ) ) {
+	echo "BlazeGraph cli interface targeted at the Wikidata Query service.\n";
+	echo "Runs runs queries interactively.\n\n";
+	echo "Usage: " . $argv[0] . " [--response=format-mime-type] [--no-default-prefixes]\n";
+
+	exit( 1 );
+}
+
+$longopts = array(
+	'response::', // [--response=format]
+	'no-default-prefixes', // [--no-default-prefixes]
+);
+$opts = getopt( '', $longopts );
+
+$response = isset( $opts['response'] ) ? $opts['response'] : 'application/sparql-results+json';
+
+echo "Enter SPARQL queries delimited by either an empty line after the query, a \\g or a \\G.
+Quit by typing 'quit' or 'exit'.\n";
+
+while( true ) {
+	$query = readInput();
+	if ( $query === false ) {
+		if ( mt_rand( 0, 10 ) === 8 ) {
+			die( "Here, have a kitten: https://commons.wikimedia.org/wiki/File:Cat_deck.PNG\n" );
+		}
+		die( "cu\n" );
+	}
+
+	if ( !isset( $opts['no-default-prefixes'] ) ) {
+		$query = $defaultPrefixes . "\n" . $query;
+	}
+
+	$result = doQuery( $query, $endPoint, $response );
+	if ( $result === false ) {
+		echo "Query execution failed.\n";
+	} else {
+		echo $result . "\n";
+	}
+}
