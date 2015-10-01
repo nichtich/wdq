@@ -1,2 +1,4 @@
-# asparagus
-BlazeGraph cli interface targeted at the Wikidata Query service
+# wdq
+
+Command line interface to Wikidata Query Service
+

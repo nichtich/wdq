@@ -1,0 +1,183 @@
+#!/usr/bin/env perl
+use v5.14;
+
+use Getopt::Long;
+use HTTP::Tiny;
+
+my $VERSION = '0.0.1';
+
+# get command line options
+
+my %opt;
+Getopt::Long::Configure('bundling');
+GetOptions(\%opt,
+    'help|h|?',
+    'version|v',
+    'api=s',
+    'format=s',
+    'sparql|s=s',
+    'dry!',
+    'default-prefixes!',
+) or exit 1;
+
+if ($opt{version}) {
+    say "wdq $VERSION";
+    exit;
+} elsif ($opt{help}) {
+    require Pod::Usage;
+    my $string;
+    open my $output, '>', \$string;
+    Pod::Usage::pod2usage(
+        -msg      => "wdq [OPTIONS] < sparql\n",
+        -sections => [qw(USAGE OPTIONS)],
+        -exitval  => 'NOEXIT',
+        -output   => $output,
+        indent    => 2,
+    );
+    $string =~ s/\n\n  --/\n  --/gm;
+    print $string;
+    exit;
+}
+
+# default values
+$opt{api} //= 'https://query.wikidata.org/bigdata/namespace/wdq/sparql';
+$opt{format} //= 'json';
+$opt{'default-prefixes'} //= 1;
+$opt{sparql} //= '-';
+
+my $prefixes = <<SPARQL;
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX schema: <http://schema.org/>
+PREFIX cc: <http://creativecommons.org/ns#>
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX wdata: <http://www.wikidata.org/wiki/Special:EntityData/>
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wds: <http://www.wikidata.org/entity/statement/>
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX wdref: <http://www.wikidata.org/reference/>
+PREFIX wdv: <http://www.wikidata.org/value/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+PREFIX psv: <http://www.wikidata.org/prop/statement/value/>
+PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+PREFIX pqv: <http://www.wikidata.org/prop/qualifier/value/>
+PREFIX pr: <http://www.wikidata.org/prop/reference/>
+PREFIX prv: <http://www.wikidata.org/prop/reference/value/>
+PREFIX wdno: <http://www.wikidata.org/prop/novalue/>
+SPARQL
+
+my $query;
+{ 
+    local $/ = undef;
+    if ($opt{sparql} eq '-') {
+        $query = <STDIN>;
+    } elsif ($opt{sparql} !~ /^\s*{/m) {
+        open my $fh, '<', $opt{sparql}
+            or die "failed to open file ".$opt{sparql};
+        $query = <$fh>;
+        open my $fh;
+    } else {
+        $query = $opt{sparql};
+    }
+
+    if ($query =~ /^\s*{/m) {
+        $query = "SELECT * WHERE $query";
+    } 
+
+    if ($opt{'default-prefixes'}) {
+        $query = "$prefixes\n$query";
+    }
+}
+
+if ($opt{dry}) {
+    say $query;
+    exit;
+}
+
+my $http = HTTP::Tiny->new(
+    default_headers => {
+        agent => "wdq/$VERSION"
+    }
+);
+
+my $param = {
+    format => $opt{format},
+    query  => $query,
+};
+# TODO: HTTP POST
+my $url = $opt{api}.'?'.$http->www_form_urlencode($param);
+my $res = $http->get($url);
+if ($res->{success}) {
+    say $res->{content};
+    exit;
+} else {
+    say STDERR $res->{content};
+    exit 1;
+}
+
+=head1 DESCRIPTION
+
+CLI interface for the Wikidata Query Service
+
+=head1 USAGE
+
+Access L<Wikidata Query Service|https://query.wikidata.org/> via command line.
+A SPARQL query is read from STDIN or option C<sparql>. Default namespaces are
+added automatically. If a query starts with C<{> a C<SELECT> clause is added.
+
+=head1 EXAMPLES
+
+  # get all parts of the solar system
+  wdq -s '{ ?c wdt:P361 wd:Q544 }'
+
+=head1 OPTIONS
+
+=over
+
+=item --sparql|-s
+
+File with SPARQL query (C<-> for STDIN) or WHERE clause to construct SPARQL
+query from.
+
+=item --format
+
+Response format. Default value: C<json>
+
+=item --no-default-prefixes
+
+Don't add default namespace prefixes to the SPARQL query
+
+=item --api
+
+SPARQL endpoint. Default value:
+C<https://query.wikidata.org/bigdata/namespace/wdq/sparql>
+
+=item --dry
+
+Don't execute query but show it
+
+=item --help|-h|-?
+
+Show usage help
+
+=item --version
+
+Show version if this script
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright by Jakob Voß C<voss@gbv.de>
+
+Based on a PHP script by Marius Hoch C<hoo@online.de>
+
+Licensed under GPL-2.0+
+
+=cut
