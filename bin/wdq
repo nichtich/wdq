@@ -121,9 +121,9 @@ if ($res->{success}) {
     exit 1;
 }
 
-=head1 DESCRIPTION
+=head1 NAME
 
-CLI interface for the Wikidata Query Service
+wdq - command line access to Wikidata Query Service
 
 =head1 USAGE
 
@@ -177,7 +177,8 @@ Show version if this script
 Copyright by Jakob Voß C<voss@gbv.de>
 
 Based on a PHP script by Marius Hoch C<hoo@online.de>
+at L<https://github.com/mariushoch/asparagus>.
 
-Licensed under GPL-2.0+
+Licensed under GPL 2.0+
 
 =cut

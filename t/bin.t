@@ -4,7 +4,7 @@ use Test::Output;
 
 my $exit;
 sub qid {
-    system('./wdq', @_); 
+    system('./bin/wdq', @_); 
     $exit = $? >> 8;
 }
 

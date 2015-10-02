@@ -1,0 +1,70 @@
+{
+   "abstract" : "command line access to Wikidata Query Service",
+   "author" : [
+      "Jakob Voß <jakob.voss@gbv.de>"
+   ],
+   "dynamic_config" : 0,
+   "generated_by" : "Dist::Zilla version 5.036, Dist::Milla version v1.0.15, CPAN::Meta::Converter version 2.150001",
+   "license" : [
+      "gpl_2"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "App-wdq",
+   "no_index" : {
+      "directory" : [
+         "t",
+         "xt",
+         "inc",
+         "share",
+         "eg",
+         "examples"
+      ]
+   },
+   "prereqs" : {
+      "configure" : {
+         "requires" : {
+            "Module::Build::Tiny" : "0.039"
+         }
+      },
+      "develop" : {
+         "requires" : {
+            "Dist::Milla" : "v1.0.15",
+            "Test::Pod" : "1.41"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "HTTP::Tiny" : "0",
+            "JSON" : "0",
+            "Term::ANSIColor" : "0",
+            "perl" : "v5.14.0"
+         }
+      },
+      "test" : {
+         "requires" : {
+            "Test::More" : "0",
+            "Test::Output" : "0"
+         }
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/nichtich/wdq/issues"
+      },
+      "homepage" : "https://github.com/nichtich/wdq",
+      "repository" : {
+         "type" : "git",
+         "url" : "https://github.com/nichtich/wdq.git",
+         "web" : "https://github.com/nichtich/wdq"
+      }
+   },
+   "version" : "0.0.1",
+   "x_contributors" : [
+      "Marius Hoch <hoo@online.de>"
+   ]
+}
+
