@@ -45,32 +45,32 @@ $opt{format} //= 'json';
 $opt{'default-prefixes'} //= 1;
 $opt{sparql} //= '-';
 
-my $prefixes = <<SPARQL;
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX owl: <http://www.w3.org/2002/07/owl#>
-PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-PREFIX schema: <http://schema.org/>
-PREFIX cc: <http://creativecommons.org/ns#>
-PREFIX geo: <http://www.opengis.net/ont/geosparql#>
-PREFIX prov: <http://www.w3.org/ns/prov#>
-PREFIX wikibase: <http://wikiba.se/ontology#>
-PREFIX wdata: <http://www.wikidata.org/wiki/Special:EntityData/>
-PREFIX wd: <http://www.wikidata.org/entity/>
-PREFIX wdt: <http://www.wikidata.org/prop/direct/>
-PREFIX wds: <http://www.wikidata.org/entity/statement/>
-PREFIX p: <http://www.wikidata.org/prop/>
-PREFIX wdref: <http://www.wikidata.org/reference/>
-PREFIX wdv: <http://www.wikidata.org/value/>
-PREFIX ps: <http://www.wikidata.org/prop/statement/>
-PREFIX psv: <http://www.wikidata.org/prop/statement/value/>
-PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
-PREFIX pqv: <http://www.wikidata.org/prop/qualifier/value/>
-PREFIX pr: <http://www.wikidata.org/prop/reference/>
-PREFIX prv: <http://www.wikidata.org/prop/reference/value/>
-PREFIX wdno: <http://www.wikidata.org/prop/novalue/>
-SPARQL
+my %namespaces = (
+    rdf => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+    xsd => 'http://www.w3.org/2001/XMLSchema#',
+    rdfs => 'http://www.w3.org/2000/01/rdf-schema#',
+    owl => 'http://www.w3.org/2002/07/owl#',
+    skos => 'http://www.w3.org/2004/02/skos/core#',
+    schema => 'http://schema.org/',
+    cc => 'http://creativecommons.org/ns#',
+    geo => 'http://www.opengis.net/ont/geosparql#',
+    prov => 'http://www.w3.org/ns/prov#',
+    wikibase => 'http://wikiba.se/ontology#',
+    wdata => 'http://www.wikidata.org/wiki/Special:EntityData/',
+    wd => 'http://www.wikidata.org/entity/',
+    wdt => 'http://www.wikidata.org/prop/direct/',
+    wds => 'http://www.wikidata.org/entity/statement/',
+    p => 'http://www.wikidata.org/prop/',
+    wdref => 'http://www.wikidata.org/reference/',
+    wdv => 'http://www.wikidata.org/value/',
+    ps => 'http://www.wikidata.org/prop/statement/',
+    psv => 'http://www.wikidata.org/prop/statement/value/',
+    pq => 'http://www.wikidata.org/prop/qualifier/',
+    pqv => 'http://www.wikidata.org/prop/qualifier/value/',
+    pr => 'http://www.wikidata.org/prop/reference/',
+    prv => 'http://www.wikidata.org/prop/reference/value/',
+    wdno => 'http://www.wikidata.org/prop/novalue/',
+);
 
 my $query;
 { 
@@ -91,11 +91,17 @@ my $query;
     } 
 
     if ($opt{'default-prefixes'}) {
-        $query = "$prefixes\n$query";
+        # Add PREFIX for actually used and known prefixes
+        my %ns;
+        my $ps = join '|', keys %namespaces;
+        $ns{$_} = $namespaces{$_} for $query =~ /($ps):/mg;
+        my @prefixes = map { "PREFIX $_: <$ns{$_}>" } sort keys %ns;
+        $query = join "\n", @prefixes, $query;
     }
 }
 
 if ($opt{dry}) {
+    chomp $query;
     say $query;
     exit;
 }
