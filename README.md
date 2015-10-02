@@ -4,7 +4,7 @@ App::wdq - command line access to Wikidata Query Service
 
 # STATUS
 
-[![Build Status](https://travis-ci.org/nichtich/App-wdq.png)](https://travis-ci.org/nichtich/App-wdq)
+[![Build Status](https://travis-ci.org/nichtich/wdq.png)](https://travis-ci.org/nichtich/wdq)
 [![Coverage Status](https://coveralls.io/repos/nichtich/App-wdq/badge.png)](https://coveralls.io/r/nichtich/App-wdq)
 [![Kwalitee Score](http://cpants.cpanauthors.org/dist/App-wdq.png)](http://cpants.cpanauthors.org/dist/App-wdq)
 
