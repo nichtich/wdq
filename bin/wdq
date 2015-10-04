@@ -16,7 +16,7 @@ GetOptions(\%opt,
     'api=s',
     'format=s',
     'query|q=s',
-    'dry!',
+    'no-execute|n!',
     'default-prefixes!',
     'force!',
 ) or exit 1;
@@ -120,7 +120,7 @@ my $query;
     }
 }
 
-if ($opt{dry}) {
+if ($opt{'no-execute'}) {
     chomp $query;
     say $query;
     exit;
@@ -185,9 +185,10 @@ Don't add default namespace prefixes to the SPARQL query
 SPARQL endpoint. Default value:
 C<https://query.wikidata.org/bigdata/namespace/wdq/sparql>
 
-=item --dry
+=item --no-execute|-n
 
-Don't execute query but show it
+Don't execute query but show it in expanded form. Useful to validate and
+pretty-print queries.
 
 =item --help|-h|-?
 
