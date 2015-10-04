@@ -4,7 +4,7 @@ use v5.14;
 use Getopt::Long;
 use HTTP::Tiny;
 
-my $VERSION = '0.0.1';
+my $VERSION = '0.1.0';
 
 # get command line options
 
@@ -14,7 +14,7 @@ GetOptions(\%opt,
     'help|h|?',
     'version|v',
     'api=s',
-    'format=s',
+    'format|f=s',
     'query|q=s',
     'no-execute|n!',
     'default-prefixes!',
@@ -42,9 +42,21 @@ if ($opt{version}) {
 
 # default values
 $opt{api} //= 'https://query.wikidata.org/bigdata/namespace/wdq/sparql';
-$opt{format} //= 'json';
+$opt{format} = lc($opt{format} // 'json');
 $opt{'default-prefixes'} //= 1;
 $opt{query} //= '-';
+
+my $format = do {
+    my %FORMATS = (
+        json => 'json',
+        xml  => 'xml',
+        tsv  => 'json',
+    );
+    $FORMATS{lc $opt{format}} // do {
+        say STDERR "Unknown format: $opt{format}";
+        exit 1;
+    };
+};
 
 my %namespaces = (
     rdf => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
@@ -133,20 +145,38 @@ my $http = HTTP::Tiny->new(
 );
 
 my $param = {
-    format => $opt{format},
+    format => $format,
     query  => $query,
 };
 # TODO: HTTP POST
 my $url = $opt{api}.'?'.$http->www_form_urlencode($param);
 my $res = $http->get($url);
-if ($res->{success}) {
-    say $res->{content};
-    exit;
-} else {
+if (!$res->{success}) {
     say STDERR $res->{content};
-    exit 1;
+    exit 2;
 }
 
+if ($format eq $opt{format}) {
+    say $res->{content};
+} else {
+    require RDF::Trine::Iterator::JSONHandler;
+    say $res->{content};
+    my $iter = RDF::Trine::Iterator::JSONHandler->new->parse($res->{content});
+    if ($opt{format} eq 'tsv') {
+        require Scalar::Util;
+        binmode STDOUT, ":encoding(UTF-8)";
+        # TODO: get keys in same order as given in SPARQL query
+        my @names = sort keys %{$iter->peek};
+        say join("\t", map { "?$_" } @names);
+        while (my $r = $iter->next) {
+            say join "\t", 
+                map { Scalar::Util::blessed($_) ? $_->as_ntriples : '' } 
+                map { $r->{ $_ } } @names;
+        }
+    }
+}
+exit;
+ 
 =head1 NAME
 
 wdq - command line access to Wikidata Query Service
@@ -174,7 +204,7 @@ automatically.
 
 =item --format
 
-Response format. Default value: C<json>
+Output format (C<json> as default). Supports C<json>, C<xml>, and C<tsv>.
 
 =item --no-default-prefixes
 

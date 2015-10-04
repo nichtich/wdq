@@ -1,6 +1,12 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+    - Renamed option --sparql to --query
+    - Renamed option --sparql to --query
+    - Renamed option --dry to --no-execute
+    - Validate SPARQL with RDF::Query
+    - Support output format tsv
+    - Test with correct perl executable (issuee #3)
 
 0.0.1  2015-10-02 22:29:07 CEST
     - Inital release at CPAN

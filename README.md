@@ -31,6 +31,9 @@ the \`wdq\` script at some place in your `$PATH`:
     # get all parts of the solar system
     wdq -q '{ ?c wdt:P361 wd:Q544 }'
 
+    # execute query and return tab-separated values
+    wdq -f tsv < query
+
 # COPYRIGHT AND LICENSE
 
 Copyright Jakob Voss, 2015-

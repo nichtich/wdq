@@ -23,4 +23,8 @@ stderr_is { qid '--query', '{ ?s ?p x:foo }' }
     "Invalid SPARQL query!\n", "validate SPARQL";
 is $exit, 1;
 
+stderr_is { qid '--format', 'x' }
+    "Unknown format: x\n", "unknown format";
+is $exit, 1;
+
 done_testing;

@@ -1,7 +1,7 @@
 package App::wdq;
 use v5.14;
 
-our $VERSION = '0.0.1';
+our $VERSION = '0.1.0';
 
 1;
 __END__
@@ -41,6 +41,9 @@ the `wdq` script at some place in your C<$PATH>:
 
   # get all parts of the solar system
   wdq -q '{ ?c wdt:P361 wd:Q544 }'
+
+  # execute query and return tab-separated values
+  wdq -f tsv < query
 
 =head1 COPYRIGHT AND LICENSE
 
