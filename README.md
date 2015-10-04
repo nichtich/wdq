@@ -24,6 +24,12 @@ the \`wdq\` script at some place in your `$PATH`:
 # USAGE
 
     wdq --help
+    
+
+# EXAMPLES
+
+    # get all parts of the solar system
+    wdq -q '{ ?c wdt:P361 wd:Q544 }'
 
 # COPYRIGHT AND LICENSE
 

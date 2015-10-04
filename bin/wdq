@@ -15,7 +15,7 @@ GetOptions(\%opt,
     'version|v',
     'api=s',
     'format=s',
-    'sparql|s=s',
+    'query|q=s',
     'dry!',
     'default-prefixes!',
     'force!',
@@ -29,7 +29,7 @@ if ($opt{version}) {
     my $string;
     open my $output, '>', \$string;
     Pod::Usage::pod2usage(
-        -msg      => "wdq [OPTIONS] < sparql\n",
+        -msg      => "wdq [OPTIONS] < query\n",
         -sections => [qw(USAGE OPTIONS)],
         -exitval  => 'NOEXIT',
         -output   => $output,
@@ -44,7 +44,7 @@ if ($opt{version}) {
 $opt{api} //= 'https://query.wikidata.org/bigdata/namespace/wdq/sparql';
 $opt{format} //= 'json';
 $opt{'default-prefixes'} //= 1;
-$opt{sparql} //= '-';
+$opt{query} //= '-';
 
 my %namespaces = (
     rdf => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
@@ -81,15 +81,15 @@ my %namespaces = (
 my $query;
 { 
     local $/ = undef;
-    if ($opt{sparql} eq '-') {
+    if ($opt{query} eq '-') {
         $query = <STDIN>;
-    } elsif ($opt{sparql} !~ /^\s*{/m) {
-        open my $fh, '<', $opt{sparql}
-            or die "failed to open file ".$opt{sparql};
+    } elsif ($opt{query} !~ /^\s*{/m) {
+        open my $fh, '<', $opt{query}
+            or die "failed to open file ".$opt{query};
         $query = <$fh>;
         open my $fh;
     } else {
-        $query = $opt{sparql};
+        $query = $opt{query};
     }
 
     if ($query =~ /^\s*{/m) {
@@ -154,22 +154,23 @@ wdq - command line access to Wikidata Query Service
 =head1 USAGE
 
 Access L<Wikidata Query Service|https://query.wikidata.org/> via command line.
-A SPARQL query is read from STDIN or option C<sparql>. Default namespaces are
+A SPARQL query is read from STDIN or option C<query>. Default namespaces are
 added automatically. If a query starts with C<{> a C<SELECT> clause is added.
 
 =head1 EXAMPLES
 
   # get all parts of the solar system
-  wdq -s '{ ?c wdt:P361 wd:Q544 }'
+  wdq -q '{ ?c wdt:P361 wd:Q544 }'
 
 =head1 OPTIONS
 
 =over
 
-=item --sparql|-s
+=item --query|-q
 
-File with SPARQL query (C<-> for STDIN) or WHERE clause to construct SPARQL
-query from.
+File with query (C<-> for STDIN as default). If query begins with C<{> it is
+used as WHERE clause of a SPARQL query. PREFIX definitions are included
+automatically.
 
 =item --format
 
