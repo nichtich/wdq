@@ -1,6 +1,8 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+
+0.1.0  2015-10-04 17:20:41 CEST
     - Renamed option --sparql to --query
     - Renamed option --sparql to --query
     - Renamed option --dry to --no-execute
