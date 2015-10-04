@@ -3,7 +3,7 @@ use Test::More;
 use Test::Output;
 
 my $exit;
-sub qid { system('./bin/wdq', @_); $exit = $? >> 8 }
+sub qid { system($^X, './bin/wdq', @_); $exit = $? >> 8 }
 sub slurp { local (@ARGV,$/) = shift; <> }
 
 output_like { qid '--help' } qr/^wdq \[OPTIONS\] < sparql/, qr/^$/,
