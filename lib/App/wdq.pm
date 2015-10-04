@@ -27,7 +27,7 @@ Either install from CPAN with all dependencies:
   cpanm App::wdq
 
 or install dependencies as prebuild packages (for instance Debian) and copy
-the `wdq` script at some place in your C<$PATH>:
+the L<wdq> script to some place in your C<$PATH>:
 
   apt-get install libhttp-tiny-perl librdf-query-perl
   wget https://github.com/nichtich/wdq/raw/master/bin/wdq
@@ -47,8 +47,10 @@ the `wdq` script at some place in your C<$PATH>:
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright Jakob Voss, 2015-
+Copyright Jakob Voß, 2015-
 
 GPL 2.0
+
+=encoding utf-8
 
 =cut

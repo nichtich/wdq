@@ -52,7 +52,7 @@ my $format = do {
         xml  => 'xml',
         tsv  => 'json',
     );
-    $FORMATS{lc $opt{format}} // do {
+    $FORMATS{$opt{format}} // do {
         say STDERR "Unknown format: $opt{format}";
         exit 1;
     };
@@ -87,7 +87,6 @@ my %namespaces = (
     bd => 'http://www.bigdata.com/',
     bds => 'http://www.bigdata.com/rdf/search#',
     fts => 'http://www.bigdata.com/rdf/fts#',
-
 );
 
 my $query;
@@ -179,7 +178,7 @@ exit;
  
 =head1 NAME
 
-wdq - command line access to Wikidata Query Service
+wdq - Command line access to Wikidata Query Service
 
 =head1 USAGE
 
@@ -238,5 +237,7 @@ Based on a PHP script by Marius Hoch C<hoo@online.de>
 at L<https://github.com/mariushoch/asparagus>.
 
 Licensed under GPL 2.0+
+
+=encoding utf-8
 
 =cut
