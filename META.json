@@ -39,6 +39,7 @@
          "requires" : {
             "HTTP::Tiny" : "0",
             "JSON" : "0",
+            "RDF::Query" : "2.902",
             "Term::ANSIColor" : "0",
             "perl" : "v5.14.0"
          }

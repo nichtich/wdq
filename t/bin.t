@@ -16,9 +16,11 @@ is $exit, 0;
 output_like { qid '--foo' } qr/^$/, qr/^Unknown option: foo/, 'unknown option';
 is $exit, 1;
 
-stdout_is { qid qw(--dry -s t/examples/stackexchange.sparql) }
-    join("\n", "PREFIX wdt: <http://www.wikidata.org/prop/direct/>",
-               "PREFIX wikibase: <http://wikiba.se/ontology#>",
-               slurp('t/examples/stackexchange.sparql')), '--dry and prefixes';
+stdout_is { qid qw(--dry -s t/examples/stackexchange.query) }
+    slurp('t/examples/stackexchange.sparql'), '--dry and prefixes';
+
+stderr_is { qid '-s', '{ ?s ?p x:foo }' }
+    "Invalid SPARQL query!\n", "validate SPARQL";
+is $exit, 1;
 
 done_testing;

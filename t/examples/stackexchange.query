@@ -1,0 +1,6 @@
+SELECT ?q ?qLabel ?tag WHERE {
+    ?q wdt:P1482 ?tag .
+    SERVICE wikibase:label {
+        bd:serviceParam wikibase:language "en" .
+    }
+}

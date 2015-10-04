@@ -18,6 +18,7 @@ GetOptions(\%opt,
     'sparql|s=s',
     'dry!',
     'default-prefixes!',
+    'force!',
 ) or exit 1;
 
 if ($opt{version}) {
@@ -70,6 +71,11 @@ my %namespaces = (
     pr => 'http://www.wikidata.org/prop/reference/',
     prv => 'http://www.wikidata.org/prop/reference/value/',
     wdno => 'http://www.wikidata.org/prop/novalue/',
+    # blazegraph SPARQL extensions
+    bd => 'http://www.bigdata.com/',
+    bds => 'http://www.bigdata.com/rdf/search#',
+    fts => 'http://www.bigdata.com/rdf/fts#',
+
 );
 
 my $query;
@@ -97,6 +103,20 @@ my $query;
         $ns{$_} = $namespaces{$_} for $query =~ /($ps):/mg;
         my @prefixes = map { "PREFIX $_: <$ns{$_}>" } sort keys %ns;
         $query = join "\n", @prefixes, $query;
+    }
+}
+
+{
+    require RDF::Query;
+    if(my $q = RDF::Query->new($query)) {
+        $query = $q->as_sparql;
+        # FIXME: use correct namespace
+        $query =~ s|PREFIX bd: <http://www.bigdata.com/>\n||m;
+    } elsif ($opt{'force'}) {
+        warn "SPARQL query seems invalid!\n";
+    } else {
+        say STDERR "Invalid SPARQL query!";
+        exit 1;
     }
 }
 
