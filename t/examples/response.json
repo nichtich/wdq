@@ -1,0 +1,22 @@
+{
+  "head" : {
+    "vars" : [ "x", "y", "z" ]
+  },
+  "results" : {
+    "bindings" : [ {
+      "x" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q123"
+      },
+      "y" : {
+        "type" : "uri",
+        "value" : "http://www.example.org/"
+      },
+      "z" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "\u2603"
+      }
+    } ]
+  }
+}

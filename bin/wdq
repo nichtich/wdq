@@ -19,8 +19,10 @@ GetOptions(\%opt,
     'api=s',
     'format|f=s',
     'query|q=s',
+    'ids|i!',
     'no-execute|n!',
     'default-prefixes!',
+    'response=s', # not documented
     'force!',
 ) or exit 1;
 
@@ -92,7 +94,7 @@ my %FORMATS = (
         while (my $r = $iter->next) {
             push @$json, { map { $_ => simple_node($r->{ $_ }) } @$vars };
         }
-        say $out JSON->new->pretty->encode($json);
+        print $out JSON->new->pretty->canonical->encode($json);
     }],
 );
 
@@ -194,13 +196,16 @@ my $http = HTTP::Tiny->new(
     }
 );
 
-my $param = {
+# TODO: HTTP POST
+my $url = $opt{api}.'?'.$http->www_form_urlencode({
     format => $format->[0],
     query  => $query,
-};
-# TODO: HTTP POST
-my $url = $opt{api}.'?'.$http->www_form_urlencode($param);
-my $res = $http->get($url);
+});
+my $res = !$opt{response} ? $http->get($url) : {
+            content => do { local (@ARGV,$/) = $opt{response}; <> },
+            success => 1,
+          };
+
 if (!$res->{success}) {
     say STDERR $res->{content};
     exit 2;
@@ -216,7 +221,21 @@ if ($format->[0] eq $opt{format}) {
     my $iter = RDF::Trine::Iterator::JSONHandler->new->parse($res->{content});
     my $vars = $variables // sort keys %{$iter->peek};
     my $out  = \*STDOUT;
-  
+
+    if ($opt{ids}) {
+        $iter = RDF::Trine::Iterator::smap(sub {
+            my $r = $_;
+            foreach my $name (keys %$r) {
+                my $v = $r->{$name};
+                next unless $v->isa('RDF::Trine::Node::Resource');
+                next if $v->uri_value !~
+                qr{^http://www.wikidata.org/(entity|prop)(/[^/]+)?/([QP]\d+|[a-z0-9]+)$};
+                $r->{$name} = RDF::Trine::Node::Literal->new($3);
+            }
+            $r;
+        }, $iter);
+    }
+
     # convert result
     $format->[1]->($iter, $vars, $out);
 }
@@ -252,6 +271,11 @@ automatically.
 
 Output format (C<json> as default). Supports C<json>, C<xml>, C<tsv>, and
 C<csv> SPARQL result format and C<simple> for simplified JSON.
+
+=item --ids|-i
+
+Return Wikidata identifiers as strings instead of URIs (except for output
+format C<xml> and C<json>).
 
 =item --api
 

@@ -1,0 +1,1 @@
+SELECT ?z ?x ?y WHERE { }
