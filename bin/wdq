@@ -20,6 +20,7 @@ GetOptions(\%opt,
     'format|f=s',
     'query|q=s',
     'ids|i!',
+    'color|C!',
     'no-execute|n!',
     'default-prefixes!',
     'response=s', # not documented
@@ -45,12 +46,31 @@ if ($opt{version}) {
     exit;
 }
 
-# default values
+# default SPARQL endpoint
 $opt{api} //= 'https://query.wikidata.org/bigdata/namespace/wdq/sparql';
+
+# default output format
 $opt{format} = lc($opt{format} // 'json');
-$opt{'default-prefixes'} //= 1;
+
+# read query from STDIN by default
 $opt{query} //= '-';
 
+# use color by default if output is terminal
+$opt{color} //= -t STDOUT ? 1 : 0; ## no critic
+
+# add default prefixes by default
+$opt{'default-prefixes'} //= 1;
+
+# use color codes adopted from jq command line tool >= 1.5
+sub punctation {
+    $opt{color} ? "\e[1;39m".$_[0]."\e[0m" : $_[0] # default, bold
+}
+sub string {
+    $opt{color} ? "\e[0;32m".$_[0]."\e[0m" : $_[0] # green
+}
+sub field {
+    $opt{color} ? "\e[34;1m".$_[0]."\e[0m" : $_[0] # blue, bold
+}
 
 sub simple_node {
     if (!Scalar::Util::blessed($_[0])) {
@@ -67,6 +87,7 @@ sub simple_node {
 my %FORMATS = (
     json => ['json'],
     xml  => ['xml'],
+    # SPARQL TSV
     tsv  => [ json => sub {
         my ($iter, $vars, $out) = @_;
         say $out join("\t", map { "?$_" } @$vars);
@@ -75,18 +96,23 @@ my %FORMATS = (
                 map { Scalar::Util::blessed($_) ? $_->as_ntriples : '' }
                 map { $r->{ $_ } } @$vars;
         }
-   }],
+    }],
+    # SPARQL CSV
     csv => [ json => sub {
         my ($iter, $vars, $out) = @_;
-        require Text::CSV;
-        my $csv = Text::CSV->new({binary => 1});
-        $csv->print($out, $vars);
-        print $out "\n";
+        say $out join punctation(','), map { field($_) } @$vars;
         while (my $r = $iter->next) {
-            $csv->print($out, [ map { simple_node($r->{ $_ }) } @$vars ]);
-            print $out "\n";
+            say $out join punctation(','), map {
+                my $s = simple_node($r->{$_});
+                if ($s =~ /[",\x0A\x0D]/) {
+                    $s =~ s/"/""/g;
+                    $s = "\"$s\"";
+                }
+                string($s)
+            } @$vars;
         }
     }],
+    # simple key-value structure
     simple => [ json => sub {
         my ($iter, $vars, $out) = @_;
         require JSON;
@@ -276,6 +302,11 @@ C<csv> SPARQL result format and C<simple> for simplified JSON.
 
 Return Wikidata identifiers as strings instead of URIs (except for output
 format C<xml> and C<json>).
+
+=item --color|-C
+
+By default output is colored if writing to a terminal. Disable this with
+C<--no-color> or force color with C<--color> or C<-C>.
 
 =item --api
 

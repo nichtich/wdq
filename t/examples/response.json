@@ -15,7 +15,7 @@
       "z" : {
         "xml:lang" : "en",
         "type" : "literal",
-        "value" : "\u2603"
+        "value" : "\u2603\n"
       }
     } ]
   }
