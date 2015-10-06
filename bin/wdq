@@ -15,7 +15,7 @@ my %opt;
 Getopt::Long::Configure('bundling');
 GetOptions(\%opt,
     'help|h|?',
-    'version|v',
+    'version|V',
     'api=s',
     'format|f=s',
     'query|q=s',
@@ -248,14 +248,10 @@ File with query (C<-> for STDIN as default). If query begins with C<{> it is
 used as WHERE clause of a SPARQL query. PREFIX definitions are included
 automatically.
 
-=item --format
+=item --format|-f
 
 Output format (C<json> as default). Supports C<json>, C<xml>, C<tsv>, and
 C<csv> SPARQL result format and C<simple> for simplified JSON.
-
-=item --no-default-prefixes
-
-Don't add default namespace prefixes to the SPARQL query
 
 =item --api
 
@@ -267,11 +263,15 @@ C<https://query.wikidata.org/bigdata/namespace/wdq/sparql>
 Don't execute query but show it in expanded form. Useful to validate and
 pretty-print queries.
 
+=item --no-default-prefixes
+
+Don't add default namespace prefixes to the SPARQL query
+
 =item --help|-h|-?
 
 Show usage help
 
-=item --version
+=item --version|-V
 
 Show version if this script
 
