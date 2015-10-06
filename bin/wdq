@@ -5,7 +5,7 @@ use Getopt::Long;
 use Scalar::Util;
 use HTTP::Tiny;
 
-my $VERSION = '0.1.0';
+my $VERSION = '0.2.0';
 
 binmode STDOUT, ":encoding(UTF-8)";
 

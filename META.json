@@ -4,7 +4,7 @@
       "Jakob Voß <jakob.voss@gbv.de>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Zilla version 5.036, Dist::Milla version v1.0.15, CPAN::Meta::Converter version 2.150001",
+   "generated_by" : "Dist::Milla version v1.0.15, Dist::Zilla version 5.020, CPAN::Meta::Converter version 2.142690",
    "license" : [
       "gpl_2"
    ],
@@ -63,7 +63,7 @@
          "web" : "https://github.com/nichtich/wdq"
       }
    },
-   "version" : "0.1.0",
+   "version" : "0.1.1",
    "x_contributors" : [
       "Marius Hoch <hoo@online.de>"
    ]

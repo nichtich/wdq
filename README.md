@@ -15,7 +15,7 @@ Either install from CPAN with all dependencies:
     cpanm App::wdq
 
 or install dependencies as prebuild packages (for instance Debian) and copy
-the \`wdq\` script at some place in your `$PATH`:
+the [wdq](https://metacpan.org/pod/wdq) script to some place in your `$PATH`:
 
     apt-get install libhttp-tiny-perl librdf-query-perl
     wget https://github.com/nichtich/wdq/raw/master/bin/wdq
