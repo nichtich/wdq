@@ -31,8 +31,14 @@ the [wdq](https://metacpan.org/pod/wdq) script to some place in your `$PATH`:
     # get all parts of the solar system
     wdq -q '{ ?c wdt:P361 wd:Q544 }'
 
+    # print expanded SPARQL query 
+    wdq -n -q '{ ?c wdt:P361 wd:Q544 }'
+    
     # execute query and return tab-separated values
     wdq -f tsv < query
+
+    # execute query, abbreviate Wikidata identifier, emit simple JSON
+    wdq -f simple --ids < query
 
 # COPYRIGHT AND LICENSE
 
