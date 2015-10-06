@@ -2,9 +2,12 @@
 use v5.14;
 
 use Getopt::Long;
+use Scalar::Util;
 use HTTP::Tiny;
 
 my $VERSION = '0.1.0';
+
+binmode STDOUT, ":encoding(UTF-8)";
 
 # get command line options
 
@@ -46,16 +49,56 @@ $opt{format} = lc($opt{format} // 'json');
 $opt{'default-prefixes'} //= 1;
 $opt{query} //= '-';
 
-my $format = do {
-    my %FORMATS = (
-        json => 'json',
-        xml  => 'xml',
-        tsv  => 'json',
-    );
-    $FORMATS{$opt{format}} // do {
-        say STDERR "Unknown format: $opt{format}";
-        exit 1;
-    };
+
+sub simple_node {
+    if (!Scalar::Util::blessed($_[0])) {
+        ''
+    } elsif ($_[0]->isa('RDF::Trine::Node::Resource')) {
+        $_[0]->uri_value
+    } elsif ($_[0]->isa('RDF::Trine::Node::Literal')) {
+        $_[0]->literal_value
+    } else {
+        $_[0]->sse
+    }
+}
+
+my %FORMATS = (
+    json => ['json'],
+    xml  => ['xml'],
+    tsv  => [ json => sub {
+        my ($iter, $vars, $out) = @_;
+        say $out join("\t", map { "?$_" } @$vars);
+        while (my $r = $iter->next) {
+            say $out join "\t",
+                map { Scalar::Util::blessed($_) ? $_->as_ntriples : '' }
+                map { $r->{ $_ } } @$vars;
+        }
+   }],
+    csv => [ json => sub {
+        my ($iter, $vars, $out) = @_;
+        require Text::CSV;
+        my $csv = Text::CSV->new({binary => 1});
+        $csv->print($out, $vars);
+        print $out "\n";
+        while (my $r = $iter->next) {
+            $csv->print($out, [ map { simple_node($r->{ $_ }) } @$vars ]);
+            print $out "\n";
+        }
+    }],
+    simple => [ json => sub {
+        my ($iter, $vars, $out) = @_;
+        require JSON;
+        my $json = [];
+        while (my $r = $iter->next) {
+            push @$json, { map { $_ => simple_node($r->{ $_ }) } @$vars };
+        }
+        say $out JSON->new->pretty->encode($json);
+    }],
+);
+
+my $format = $FORMATS{$opt{format}} // do {
+    say STDERR "Unknown format: $opt{format}";
+    exit 1;
 };
 
 my %namespaces = (
@@ -90,7 +133,7 @@ my %namespaces = (
 );
 
 my $query;
-{ 
+{
     local $/ = undef;
     if ($opt{query} eq '-') {
         $query = <STDIN>;
@@ -105,7 +148,7 @@ my $query;
 
     if ($query =~ /^\s*{/m) {
         $query = "SELECT * WHERE $query";
-    } 
+    }
 
     if ($opt{'default-prefixes'}) {
         # Add PREFIX for actually used and known prefixes
@@ -117,18 +160,26 @@ my $query;
     }
 }
 
-{
+my $sparql = do {
     require RDF::Query;
-    if(my $q = RDF::Query->new($query)) {
-        $query = $q->as_sparql;
-        # FIXME: use correct namespace
-        $query =~ s|PREFIX bd: <http://www.bigdata.com/>\n||m;
-    } elsif ($opt{'force'}) {
-        warn "SPARQL query seems invalid!\n";
-    } else {
-        say STDERR "Invalid SPARQL query!";
-        exit 1;
+    my $q = RDF::Query->new($query);
+    unless ($q) {
+        if ($opt{'force'}) {
+            warn "SPARQL query seems invalid!\n";
+            undef;
+        } else {
+            say STDERR "Invalid SPARQL query!";
+            exit 1;
+        }
     }
+};
+
+my $variables;
+if ($sparql) {
+    $variables = [ map { $_->name } @{$sparql->parsed->{variables}} ];
+    $query = $sparql->as_sparql;
+    # FIXME: use correct namespace
+    $query =~ s|PREFIX bd: <http://www.bigdata.com/>\n||m;
 }
 
 if ($opt{'no-execute'}) {
@@ -144,7 +195,7 @@ my $http = HTTP::Tiny->new(
 );
 
 my $param = {
-    format => $format,
+    format => $format->[0],
     query  => $query,
 };
 # TODO: HTTP POST
@@ -155,27 +206,23 @@ if (!$res->{success}) {
     exit 2;
 }
 
-if ($format eq $opt{format}) {
+
+if ($format->[0] eq $opt{format}) {
     say $res->{content};
 } else {
+
+    # parse result
     require RDF::Trine::Iterator::JSONHandler;
-    say $res->{content};
     my $iter = RDF::Trine::Iterator::JSONHandler->new->parse($res->{content});
-    if ($opt{format} eq 'tsv') {
-        require Scalar::Util;
-        binmode STDOUT, ":encoding(UTF-8)";
-        # TODO: get keys in same order as given in SPARQL query
-        my @names = sort keys %{$iter->peek};
-        say join("\t", map { "?$_" } @names);
-        while (my $r = $iter->next) {
-            say join "\t", 
-                map { Scalar::Util::blessed($_) ? $_->as_ntriples : '' } 
-                map { $r->{ $_ } } @names;
-        }
-    }
+    my $vars = $variables // sort keys %{$iter->peek};
+    my $out  = \*STDOUT;
+  
+    # convert result
+    $format->[1]->($iter, $vars, $out);
 }
-exit;
- 
+
+__END__
+
 =head1 NAME
 
 wdq - Command line access to Wikidata Query Service
@@ -203,7 +250,8 @@ automatically.
 
 =item --format
 
-Output format (C<json> as default). Supports C<json>, C<xml>, and C<tsv>.
+Output format (C<json> as default). Supports C<json>, C<xml>, C<tsv>, and
+C<csv> SPARQL result format and C<simple> for simplified JSON.
 
 =item --no-default-prefixes
 
@@ -231,13 +279,11 @@ Show version if this script
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright by Jakob Voß C<voss@gbv.de>
+Copyright by Jakob Voss C<voss@gbv.de>
 
 Based on a PHP script by Marius Hoch C<hoo@online.de>
 at L<https://github.com/mariushoch/asparagus>.
 
 Licensed under GPL 2.0+
-
-=encoding utf-8
 
 =cut

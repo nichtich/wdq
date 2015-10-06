@@ -47,10 +47,8 @@ the L<wdq> script to some place in your C<$PATH>:
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright Jakob Voß, 2015-
+Copyright Jakob Voss, 2015-
 
 GPL 2.0
-
-=encoding utf-8
 
 =cut
