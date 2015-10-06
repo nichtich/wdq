@@ -1,6 +1,8 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+
+0.1.2  2015-10-06 15:50:29 CEST
     - Added option ids to abbreviate Wikidata identifiers
 
 0.1.1  2015-10-06 12:43:48 CEST
