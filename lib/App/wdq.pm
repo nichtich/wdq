@@ -1,7 +1,7 @@
 package App::wdq;
 use v5.14;
 
-our $VERSION = '0.1.2';
+our $VERSION = '0.2.0';
 
 1;
 __END__
@@ -20,6 +20,14 @@ App::wdq - command line access to Wikidata Query Service
 
 =end markdown
 
+=head1 DESCRIPTION
+
+The command line script L<wdq>, included in CPAN module L<App::wdq>, provides a
+tool to access L<Wikidata Query Service|https://query.wikidata.org/>. It
+supports formulation and execution of L<SPARQL SELECT
+queries|http://www.w3.org/TR/sparql11-query/#select> to extract selected
+information from Wikidata or other Wikibase instances. 
+
 =head1 INSTALLATION
 
 Either install from CPAN with all dependencies:
@@ -29,12 +37,16 @@ Either install from CPAN with all dependencies:
 or install dependencies as prebuild packages (for instance Debian) and copy
 the L<wdq> script to some place in your C<$PATH>:
 
-  apt-get install libhttp-tiny-perl librdf-query-perl
+  sudo apt-get install libhttp-tiny-perl librdf-query-perl
   wget https://github.com/nichtich/wdq/raw/master/bin/wdq
   chmod +x wdq
 
+The latter method will not install this documentation. 
+
 =head1 USAGE
  
+Get a documented list of all command line options:
+
   wdq --help
   
 =head1 EXAMPLES

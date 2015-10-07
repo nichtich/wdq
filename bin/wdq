@@ -25,6 +25,7 @@ sub field {
 Getopt::Long::Configure('bundling');
 GetOptions(\%opt,
     'help|h|?',
+    'man',
     'version|V',
     'api=s',
     'format|f=s',
@@ -65,6 +66,12 @@ if ($opt{version}) {
         $help =~ s/(<[^>\n]+>)/\e[0;33m\1\e[0m/mg; # URLs: yellow
     }
     print $help;
+    exit;
+} elsif ($opt{man}) {
+    my $module = $opt{color} ? 'Pod::Text::Color' : 'Pod::Text';
+    eval "require $module";
+    eval "require App::wdq"; # may fail if pure script installed by hand
+    $module->new->parse_from_file($INC{'App/wdq.pm'} // $0);
     exit;
 }
 
@@ -347,6 +354,10 @@ Don't add default namespace prefixes to the SPARQL query
 =item --help|-h|-?
 
 Show usage help
+
+=item --man
+
+Show detailled manual
 
 =item --version|-V
 
