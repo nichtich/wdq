@@ -1,6 +1,8 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+
+0.2.0  2015-10-07 12:32:52 CEST
     - Made simple format the default
     - Fixed SPARQL csv format, including colors
     - Added output format ldjson (Line Delimited JSON)
