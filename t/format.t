@@ -35,4 +35,15 @@ stdout_is { wdq qw(--ids -f tsv -q t/examples/query.query) } <<OUT, 'ids';
 "\\u2603\\n"\@en\t"Q123"\t<http://www.example.org/>
 OUT
 
+unless ( eval { require 'Catmandu::Exporter::Table'; 1 } ) {
+output_is { wdq qw(--export Table -q t/examples/query.query -f csv) }
+    <<OUT, "Option export overrides option format!\n", 'export';
+| x                                   | y                       | z  |
+|-------------------------------------|-------------------------|----|
+| http://www.wikidata.org/entity/Q123 | http://www.example.org/ | ☃  |
+OUT
+} else {
+    note "Skipping option --export"
+}
+
 done_testing;

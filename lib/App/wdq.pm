@@ -63,6 +63,9 @@ Get a documented list of all command line options:
   # execute query, abbreviate Wikidata identifier, emit simple JSON
   wdq -f simple --ids < query
 
+  # print result as Markdown Table (requires Catmandu::Exporter::Table)
+  wdq --export Table < query
+
 =head1 COPYRIGHT AND LICENSE
 
 Copyright Jakob Voss, 2015-
