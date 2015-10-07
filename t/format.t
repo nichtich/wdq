@@ -26,6 +26,10 @@ stdout_is { wdq qw(-f tsv -q t/examples/query.query) } <<OUT, 'tsv';
 "\\u2603\\n"\@en\t<http://www.wikidata.org/entity/Q123>\t<http://www.example.org/>
 OUT
 
+stdout_is { wdq qw(-f ldjson -q t/examples/query.query) } <<OUT, 'ldjson';
+{"x":"http://www.wikidata.org/entity/Q123","y":"http://www.example.org/","z":"☃\\n"}
+OUT
+
 stdout_is { wdq qw(--ids -f tsv -q t/examples/query.query) } <<OUT, 'ids';
 ?z\t?x\t?y
 "\\u2603\\n"\@en\t"Q123"\t<http://www.example.org/>

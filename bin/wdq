@@ -121,6 +121,15 @@ my %FORMATS = (
         }
         print $out JSON->new->pretty->canonical->encode($json);
     }],
+    # Simple Line Delimited JSON
+    ldjson => [ json => sub {
+        my ($iter, $vars, $out) = @_;
+        require JSON;
+        while (my $r = $iter->next) {
+            my $json = { map { $_ => simple_node($r->{ $_ }) } @$vars };
+            say $out JSON->new->canonical->encode($json);
+        }
+    }],
 );
 
 my $format = $FORMATS{$opt{format}} // do {
@@ -296,7 +305,11 @@ automatically.
 =item --format|-f
 
 Output format. Supported formats include C<json>, C<xml>, C<tsv>, and C<csv>
-SPARQL result format, and C<simple> for simplified JSON as default.
+SPARQL result format, C<simple> for flat JSON without language tags (default),
+and C<ldjson> for line delimited flat json. For more flexible output options 
+pipe to another tool such as L<jq|http://stedolan.github.io/jq/>,
+L<miller|http://johnkerl.org/miller/>, and 
+L<catmandu|https://github.com/LibreCat/Catmandu>.
 
 =item --ids|-i
 
