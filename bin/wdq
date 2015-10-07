@@ -12,18 +12,21 @@ my %opt;
 
 # use color codes adopted from jq command line tool >= 1.5
 sub punctation {
-    $opt{color} ? "\e[1;39m".$_[0]."\e[0m" : $_[0] # default, bold
+    $opt{color} ? "\e[1;39m" . $_[0] . "\e[0m" : $_[0]    # default, bold
 }
+
 sub string {
-    $opt{color} ? "\e[0;32m".$_[0]."\e[0m" : $_[0] # green
+    $opt{color} ? "\e[0;32m" . $_[0] . "\e[0m" : $_[0]    # green
 }
+
 sub field {
-    $opt{color} ? "\e[1;34m".$_[0]."\e[0m" : $_[0] # blue, bold
+    $opt{color} ? "\e[1;34m" . $_[0] . "\e[0m" : $_[0]    # blue, bold
 }
 
 # get command line options
 Getopt::Long::Configure('bundling');
-GetOptions(\%opt,
+GetOptions(
+    \%opt,
     'help|h|?',
     'man',
     'version|V',
@@ -34,18 +37,19 @@ GetOptions(\%opt,
     'color|C!',
     'no-execute|n!',
     'default-prefixes!',
-    'response=s', # not documented
+    'response=s',    # not documented
     'export=s',
     'force!',
 ) or exit 1;
 
 # use color by default if output is terminal
-$opt{color} //= -t STDOUT ? 1 : 0; ## no critic
+$opt{color} //= -t STDOUT ? 1 : 0;    ## no critic
 
-if ($opt{version}) {
+if ( $opt{version} ) {
     say "wdq $VERSION";
     exit;
-} elsif ($opt{help}) {
+}
+elsif ( $opt{help} ) {
     require Pod::Usage;
     my $help;
     open my $out, '>', \$help;
@@ -58,21 +62,24 @@ if ($opt{version}) {
     );
     $help =~ s/\n\n  --/\n  --/gm;
     $help =~ s/^      /    /mg;
-    if ($opt{color}) {
+    if ( $opt{color} ) {
+
         # first line
-        $help =~ s/^wdq (\[OPTIONS\])(.*)$/\e[1;39mwdq \e[1;34m\1\e[1;39m\2\e[0m/mg;
-        $help =~ s/^([a-z]+:)/\e[1;39m\1\e[0m/img; # headers: bright white
-        $help =~ s/^(  --.*)$/\e[1;34m\1\e[0m/mg;  # options: bright blue
-        $help =~ s/("[^"\n]+")/\e[0;32m\1\e[0m/mg; # strings: green
-        $help =~ s/(<[^>\n]+>)/\e[0;33m\1\e[0m/mg; # URLs: yellow
+        $help =~
+          s/^wdq (\[OPTIONS\])(.*)$/\e[1;39mwdq \e[1;34m\1\e[1;39m\2\e[0m/mg;
+        $help =~ s/^([a-z]+:)/\e[1;39m\1\e[0m/img;    # headers: bright white
+        $help =~ s/^(  --.*)$/\e[1;34m\1\e[0m/mg;     # options: bright blue
+        $help =~ s/("[^"\n]+")/\e[0;32m\1\e[0m/mg;    # strings: green
+        $help =~ s/(<[^>\n]+>)/\e[0;33m\1\e[0m/mg;    # URLs: yellow
     }
     print $help;
     exit;
-} elsif ($opt{man}) {
+}
+elsif ( $opt{man} ) {
     my $module = $opt{color} ? 'Pod::Text::Color' : 'Pod::Text';
     eval "require $module";
-    eval "require App::wdq"; # may fail if pure script installed by hand
-    $module->new->parse_from_file($INC{'App/wdq.pm'} // $0);
+    eval "require App::wdq";    # may fail if pure script installed by hand
+    $module->new->parse_from_file( $INC{'App/wdq.pm'} // $0 );
     exit;
 }
 
@@ -80,7 +87,7 @@ if ($opt{version}) {
 $opt{api} //= 'https://query.wikidata.org/bigdata/namespace/wdq/sparql';
 
 # default output format
-$opt{format} = lc($opt{format} // 'simple');
+$opt{format} = lc( $opt{format} // 'simple' );
 
 # read query from STDIN by default
 $opt{query} //= '-';
@@ -89,120 +96,140 @@ $opt{query} //= '-';
 $opt{'default-prefixes'} //= 1;
 
 sub simple_node {
-    if (!Scalar::Util::blessed($_[0])) {
-        ''
-    } elsif ($_[0]->isa('RDF::Trine::Node::Resource')) {
-        $_[0]->uri_value
-    } elsif ($_[0]->isa('RDF::Trine::Node::Literal')) {
-        $_[0]->literal_value
-    } else {
-        $_[0]->sse
+    if ( !Scalar::Util::blessed( $_[0] ) ) {
+        '';
+    }
+    elsif ( $_[0]->isa('RDF::Trine::Node::Resource') ) {
+        $_[0]->uri_value;
+    }
+    elsif ( $_[0]->isa('RDF::Trine::Node::Literal') ) {
+        $_[0]->literal_value;
+    }
+    else {
+        $_[0]->sse;
     }
 }
 
 my %FORMATS = (
     json => ['json'],
     xml  => ['xml'],
+
     # SPARQL TSV
-    tsv  => [ json => sub {
-        my ($iter, $vars, $out) = @_;
-        say $out join("\t", map { "?$_" } @$vars);
-        while (my $r = $iter->next) {
-            say $out join "\t",
-                map { Scalar::Util::blessed($_) ? $_->as_ntriples : '' }
-                map { $r->{ $_ } } @$vars;
-        }
-    }],
+    tsv => [
+        json => sub {
+            my ( $iter, $vars, $out ) = @_;
+            say $out join( "\t", map { "?$_" } @$vars );
+            while ( my $r = $iter->next ) {
+                say $out join "\t",
+                  map { Scalar::Util::blessed($_) ? $_->as_ntriples : '' }
+                  map { $r->{$_} } @$vars;
+            }
+          }
+    ],
+
     # SPARQL CSV
-    csv => [ json => sub {
-        my ($iter, $vars, $out) = @_;
-        say $out join punctation(','), map { field($_) } @$vars;
-        while (my $r = $iter->next) {
-            say $out join punctation(','), map {
-                my $s = simple_node($r->{$_});
-                if ($s =~ /[",\x0A\x0D]/) {
-                    $s =~ s/"/""/g;
-                    $s = "\"$s\"";
-                }
-                string($s)
-            } @$vars;
-        }
-    }],
+    csv => [
+        json => sub {
+            my ( $iter, $vars, $out ) = @_;
+            say $out join punctation(','), map { field($_) } @$vars;
+            while ( my $r = $iter->next ) {
+                say $out join punctation(','), map {
+                    my $s = simple_node( $r->{$_} );
+                    if ( $s =~ /[",\x0A\x0D]/ ) {
+                        $s =~ s/"/""/g;
+                        $s = "\"$s\"";
+                    }
+                    string($s)
+                } @$vars;
+            }
+          }
+    ],
+
     # simple key-value structure
-    simple => [ json => sub {
-        my ($iter, $vars, $out) = @_;
-        require JSON;
-        my $json = [];
-        while (my $r = $iter->next) {
-            push @$json, { map { $_ => simple_node($r->{ $_ }) } @$vars };
-        }
-        print $out JSON->new->pretty->canonical->encode($json);
-    }],
+    simple => [
+        json => sub {
+            my ( $iter, $vars, $out ) = @_;
+            require JSON;
+            my $json = [];
+            while ( my $r = $iter->next ) {
+                push @$json, { map { $_ => simple_node( $r->{$_} ) } @$vars };
+            }
+            print $out JSON->new->pretty->canonical->encode($json);
+          }
+    ],
+
     # Simple Line Delimited JSON
-    ldjson => [ json => sub {
-        my ($iter, $vars, $out) = @_;
-        require JSON;
-        while (my $r = $iter->next) {
-            my $json = { map { $_ => simple_node($r->{ $_ }) } @$vars };
-            say $out JSON->new->canonical->encode($json);
-        }
-    }],
+    ldjson => [
+        json => sub {
+            my ( $iter, $vars, $out ) = @_;
+            require JSON;
+            while ( my $r = $iter->next ) {
+                my $json = { map { $_ => simple_node( $r->{$_} ) } @$vars };
+                say $out JSON->new->canonical->encode($json);
+            }
+          }
+    ],
+
     # pipe to Catmandu exporter
-    export => [ json => sub {
-        my ($iter, $vars, $out) = @_;
-        my $exporter = Catmandu->exporter( grep { defined } $opt{export} );
-        while (my $r = $iter->next) {
-            my $data = { map { $_ => simple_node($r->{ $_ }) } @$vars };
-            $exporter->add($data);
-        }
-        $exporter->commit;
-    }]
+    export => [
+        json => sub {
+            my ( $iter, $vars, $out ) = @_;
+            my $exporter = Catmandu->exporter( grep { defined } $opt{export} );
+            while ( my $r = $iter->next ) {
+                my $data = { map { $_ => simple_node( $r->{$_} ) } @$vars };
+                $exporter->add($data);
+            }
+            $exporter->commit;
+          }
+    ]
 );
 
-if ($opt{export} || $opt{format} eq 'export') {
+if ( $opt{export} || $opt{format} eq 'export' ) {
     eval { require Catmandu; 1 };
     if ($@) {
         say STDERR "Option export requires Perl module Catmandu!";
         exit 1;
-    } elsif ($opt{format} !~ /^(ldjson|simple)$/) {
+    }
+    elsif ( $opt{format} !~ /^(ldjson|simple)$/ ) {
         say STDERR "Option export overrides option format!";
         Catmandu->load();
     }
     $opt{format} = 'export';
 }
 
-my $format = $FORMATS{$opt{format}} // do {
+my $format = $FORMATS{ $opt{format} } // do {
     say STDERR "Unknown format: $opt{format}";
     exit 1;
 };
 
 my %namespaces = (
-    rdf => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-    xsd => 'http://www.w3.org/2001/XMLSchema#',
-    rdfs => 'http://www.w3.org/2000/01/rdf-schema#',
-    owl => 'http://www.w3.org/2002/07/owl#',
-    skos => 'http://www.w3.org/2004/02/skos/core#',
-    schema => 'http://schema.org/',
-    cc => 'http://creativecommons.org/ns#',
-    geo => 'http://www.opengis.net/ont/geosparql#',
-    prov => 'http://www.w3.org/ns/prov#',
+    rdf      => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+    xsd      => 'http://www.w3.org/2001/XMLSchema#',
+    rdfs     => 'http://www.w3.org/2000/01/rdf-schema#',
+    owl      => 'http://www.w3.org/2002/07/owl#',
+    skos     => 'http://www.w3.org/2004/02/skos/core#',
+    schema   => 'http://schema.org/',
+    cc       => 'http://creativecommons.org/ns#',
+    geo      => 'http://www.opengis.net/ont/geosparql#',
+    prov     => 'http://www.w3.org/ns/prov#',
     wikibase => 'http://wikiba.se/ontology#',
-    wdata => 'http://www.wikidata.org/wiki/Special:EntityData/',
-    wd => 'http://www.wikidata.org/entity/',
-    wdt => 'http://www.wikidata.org/prop/direct/',
-    wds => 'http://www.wikidata.org/entity/statement/',
-    p => 'http://www.wikidata.org/prop/',
-    wdref => 'http://www.wikidata.org/reference/',
-    wdv => 'http://www.wikidata.org/value/',
-    ps => 'http://www.wikidata.org/prop/statement/',
-    psv => 'http://www.wikidata.org/prop/statement/value/',
-    pq => 'http://www.wikidata.org/prop/qualifier/',
-    pqv => 'http://www.wikidata.org/prop/qualifier/value/',
-    pr => 'http://www.wikidata.org/prop/reference/',
-    prv => 'http://www.wikidata.org/prop/reference/value/',
-    wdno => 'http://www.wikidata.org/prop/novalue/',
+    wdata    => 'http://www.wikidata.org/wiki/Special:EntityData/',
+    wd       => 'http://www.wikidata.org/entity/',
+    wdt      => 'http://www.wikidata.org/prop/direct/',
+    wds      => 'http://www.wikidata.org/entity/statement/',
+    p        => 'http://www.wikidata.org/prop/',
+    wdref    => 'http://www.wikidata.org/reference/',
+    wdv      => 'http://www.wikidata.org/value/',
+    ps       => 'http://www.wikidata.org/prop/statement/',
+    psv      => 'http://www.wikidata.org/prop/statement/value/',
+    pq       => 'http://www.wikidata.org/prop/qualifier/',
+    pqv      => 'http://www.wikidata.org/prop/qualifier/value/',
+    pr       => 'http://www.wikidata.org/prop/reference/',
+    prv      => 'http://www.wikidata.org/prop/reference/value/',
+    wdno     => 'http://www.wikidata.org/prop/novalue/',
+
     # blazegraph SPARQL extensions
-    bd => 'http://www.bigdata.com/',
+    bd  => 'http://www.bigdata.com/',
     bds => 'http://www.bigdata.com/rdf/search#',
     fts => 'http://www.bigdata.com/rdf/fts#',
 );
@@ -210,22 +237,25 @@ my %namespaces = (
 my $query;
 {
     local $/ = undef;
-    if ($opt{query} eq '-') {
+    if ( $opt{query} eq '-' ) {
         $query = <STDIN>;
-    } elsif ($opt{query} !~ /^\s*{/m) {
+    }
+    elsif ( $opt{query} !~ /^\s*{/m ) {
         open my $fh, '<', $opt{query}
-            or die "failed to open file ".$opt{query};
+          or die "failed to open file " . $opt{query};
         $query = <$fh>;
         open my $fh;
-    } else {
+    }
+    else {
         $query = $opt{query};
     }
 
-    if ($query =~ /^\s*{/m) {
+    if ( $query =~ /^\s*{/m ) {
         $query = "SELECT * WHERE $query";
     }
 
-    if ($opt{'default-prefixes'}) {
+    if ( $opt{'default-prefixes'} ) {
+
         # Add PREFIX for actually used and known prefixes
         my %ns;
         my $ps = join '|', keys %namespaces;
@@ -239,10 +269,11 @@ my $sparql = do {
     require RDF::Query;
     my $q = RDF::Query->new($query);
     unless ($q) {
-        if ($opt{'force'}) {
+        if ( $opt{'force'} ) {
             warn "SPARQL query seems invalid!\n";
             undef;
-        } else {
+        }
+        else {
             say STDERR "Invalid SPARQL query!";
             exit 1;
         }
@@ -251,68 +282,77 @@ my $sparql = do {
 
 my $variables;
 if ($sparql) {
-    $variables = [ map { $_->name } @{$sparql->parsed->{variables}} ];
+    $variables = [ map { $_->name } @{ $sparql->parsed->{variables} } ];
     $query = $sparql->as_sparql;
+
     # FIXME: use correct namespace
     $query =~ s|PREFIX bd: <http://www.bigdata.com/>\n||m;
 }
 
-if ($opt{'no-execute'}) {
+if ( $opt{'no-execute'} ) {
     chomp $query;
     say $query;
     exit;
 }
 
-my $res = $opt{response} 
-        ? {
-            content => do { local (@ARGV,$/) = $opt{response}; <> },
-            success => 1,
-          }
-        : do {
-    require  HTTP::Tiny;
-    # TODO: HTTP POST
-    my $url = $opt{api}.'?'.HTTP::Tiny->www_form_urlencode({
-        format => $format->[0],
-        query  => $query,
-    });
-    HTTP::Tiny->new( 
-        default_headers => { agent => "wdq/$VERSION" } 
-    )->get($url);
-};
+my $res =
+  $opt{response}
+  ? {
+    content => do { local ( @ARGV, $/ ) = $opt{response}; <> },
+    success => 1,
+  }
+  : do {
+    require HTTP::Tiny;
 
-if (!$res->{success}) {
+    # TODO: HTTP POST
+    my $url =
+      $opt{api} . '?'
+      . HTTP::Tiny->www_form_urlencode(
+        {
+            format => $format->[0],
+            query  => $query,
+        }
+      );
+    HTTP::Tiny->new( default_headers => { agent => "wdq/$VERSION" } )
+      ->get($url);
+  };
+
+if ( !$res->{success} ) {
     say STDERR $res->{content};
     exit 2;
 }
 
-
-if ($format->[0] eq $opt{format}) {
+if ( $format->[0] eq $opt{format} ) {
     say $res->{content};
-} else {
+    exit
+}
 
-    # parse result
-    require RDF::Trine::Iterator::JSONHandler;
-    my $iter = RDF::Trine::Iterator::JSONHandler->new->parse($res->{content});
-    my $vars = $variables // sort keys %{$iter->peek};
-    my $out  = \*STDOUT;
+# parse result
+require RDF::Trine::Iterator::JSONHandler;
+my $iter = RDF::Trine::Iterator::JSONHandler->new->parse( $res->{content} );
+my $vars = $variables // sort keys %{ $iter->peek };
+my $out  = \*STDOUT;
 
-    if ($opt{ids}) {
-        $iter = RDF::Trine::Iterator::smap(sub {
+if ( $opt{ids} ) {
+    $iter = RDF::Trine::Iterator::smap(
+        sub {
             my $r = $_;
-            foreach my $name (keys %$r) {
+            foreach my $name ( keys %$r ) {
                 my $v = $r->{$name};
                 next unless $v->isa('RDF::Trine::Node::Resource');
-                next if $v->uri_value !~
-                qr{^http://www.wikidata.org/(entity|prop)(/[^/]+)?/([QP]\d+|[a-z0-9]+)$};
+                next
+                  if $v->uri_value !~
+qr{^http://www.wikidata.org/(entity|prop)(/[^/]+)?/([QP]\d+|[a-z0-9]+)$};
                 $r->{$name} = RDF::Trine::Node::Literal->new($3);
             }
             $r;
-        }, $iter);
-    }
-
-    # convert result
-    $format->[1]->($iter, $vars, $out);
+        },
+        $iter
+    );
 }
+
+# convert result
+$format->[1]->( $iter, $vars, $out );
 
 __END__
 
