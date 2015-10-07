@@ -3,7 +3,6 @@ use v5.14;
 
 use Getopt::Long;
 use Scalar::Util;
-use HTTP::Tiny;
 
 my $VERSION = '0.2.0';
 
@@ -50,7 +49,7 @@ if ($opt{version}) {
 $opt{api} //= 'https://query.wikidata.org/bigdata/namespace/wdq/sparql';
 
 # default output format
-$opt{format} = lc($opt{format} // 'json');
+$opt{format} = lc($opt{format} // 'simple');
 
 # read query from STDIN by default
 $opt{query} //= '-';
@@ -216,21 +215,22 @@ if ($opt{'no-execute'}) {
     exit;
 }
 
-my $http = HTTP::Tiny->new(
-    default_headers => {
-        agent => "wdq/$VERSION"
-    }
-);
-
-# TODO: HTTP POST
-my $url = $opt{api}.'?'.$http->www_form_urlencode({
-    format => $format->[0],
-    query  => $query,
-});
-my $res = !$opt{response} ? $http->get($url) : {
+my $res = $opt{response} 
+        ? {
             content => do { local (@ARGV,$/) = $opt{response}; <> },
             success => 1,
-          };
+          }
+        : do {
+    require  HTTP::Tiny;
+    # TODO: HTTP POST
+    my $url = $opt{api}.'?'.HTTP::Tiny->www_form_urlencode({
+        format => $format->[0],
+        query  => $query,
+    });
+    HTTP::Tiny->new( 
+        default_headers => { agent => "wdq/$VERSION" } 
+    )->get($url);
+};
 
 if (!$res->{success}) {
     say STDERR $res->{content};
@@ -270,7 +270,7 @@ __END__
 
 =head1 NAME
 
-wdq - Command line access to Wikidata Query Service
+wdq - command line access to Wikidata Query Service
 
 =head1 USAGE
 
@@ -295,8 +295,8 @@ automatically.
 
 =item --format|-f
 
-Output format (C<json> as default). Supports C<json>, C<xml>, C<tsv>, and
-C<csv> SPARQL result format and C<simple> for simplified JSON.
+Output format. Supported formats include C<json>, C<xml>, C<tsv>, and C<csv>
+SPARQL result format, and C<simple> for simplified JSON as default.
 
 =item --ids|-i
 
