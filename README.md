@@ -8,6 +8,14 @@ App::wdq - command line access to Wikidata Query Service
 [![Coverage Status](https://coveralls.io/repos/nichtich/App-wdq/badge.png)](https://coveralls.io/r/nichtich/App-wdq)
 [![Kwalitee Score](http://cpants.cpanauthors.org/dist/App-wdq.png)](http://cpants.cpanauthors.org/dist/App-wdq)
 
+# DESCRIPTION
+
+The command line script [wdq](https://metacpan.org/pod/wdq), included in CPAN module [App::wdq](https://metacpan.org/pod/App::wdq), provides a
+tool to access [Wikidata Query Service](https://query.wikidata.org/). It
+supports formulation and execution of [SPARQL SELECT
+queries](http://www.w3.org/TR/sparql11-query/#select) to extract selected
+information from Wikidata or other Wikibase instances. 
+
 # INSTALLATION
 
 Either install from CPAN with all dependencies:
@@ -17,11 +25,15 @@ Either install from CPAN with all dependencies:
 or install dependencies as prebuild packages (for instance Debian) and copy
 the [wdq](https://metacpan.org/pod/wdq) script to some place in your `$PATH`:
 
-    apt-get install libhttp-tiny-perl librdf-query-perl
+    sudo apt-get install libhttp-tiny-perl librdf-query-perl
     wget https://github.com/nichtich/wdq/raw/master/bin/wdq
     chmod +x wdq
 
+The latter method will not install this documentation. 
+
 # USAGE
+
+Get a documented list of all command line options:
 
     wdq --help
     
@@ -39,6 +51,9 @@ the [wdq](https://metacpan.org/pod/wdq) script to some place in your `$PATH`:
 
     # execute query, abbreviate Wikidata identifier, emit simple JSON
     wdq -f simple --ids < query
+
+    # print result as Markdown Table (requires Catmandu::Exporter::Table)
+    wdq --export Table < query
 
 # COPYRIGHT AND LICENSE
 

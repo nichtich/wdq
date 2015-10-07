@@ -1,6 +1,10 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+    - Made simple format the default
+    - Fixed SPARQL csv format, including colors
+    - Added output format ldjson (Line Delimited JSON)
+    - Support export via Catmandu for more export formats
 
 0.1.2  2015-10-06 15:50:29 CEST
     - Added option ids to abbreviate Wikidata identifiers
