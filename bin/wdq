@@ -8,9 +8,20 @@ my $VERSION = '0.2.0';
 
 binmode STDOUT, ":encoding(UTF-8)";
 
-# get command line options
-
 my %opt;
+
+# use color codes adopted from jq command line tool >= 1.5
+sub punctation {
+    $opt{color} ? "\e[1;39m".$_[0]."\e[0m" : $_[0] # default, bold
+}
+sub string {
+    $opt{color} ? "\e[0;32m".$_[0]."\e[0m" : $_[0] # green
+}
+sub field {
+    $opt{color} ? "\e[1;34m".$_[0]."\e[0m" : $_[0] # blue, bold
+}
+
+# get command line options
 Getopt::Long::Configure('bundling');
 GetOptions(\%opt,
     'help|h|?',
@@ -26,22 +37,34 @@ GetOptions(\%opt,
     'force!',
 ) or exit 1;
 
+# use color by default if output is terminal
+$opt{color} //= -t STDOUT ? 1 : 0; ## no critic
+
 if ($opt{version}) {
     say "wdq $VERSION";
     exit;
 } elsif ($opt{help}) {
     require Pod::Usage;
-    my $string;
-    open my $output, '>', \$string;
+    my $help;
+    open my $out, '>', \$help;
     Pod::Usage::pod2usage(
         -msg      => "wdq [OPTIONS] < query\n",
         -sections => [qw(USAGE OPTIONS)],
         -exitval  => 'NOEXIT',
-        -output   => $output,
+        -output   => $out,
         indent    => 2,
     );
-    $string =~ s/\n\n  --/\n  --/gm;
-    print $string;
+    $help =~ s/\n\n  --/\n  --/gm;
+    $help =~ s/^      /    /mg;
+    if ($opt{color}) {
+        # first line
+        $help =~ s/^wdq (\[OPTIONS\])(.*)$/\e[1;39mwdq \e[1;34m\1\e[1;39m\2\e[0m/mg;
+        $help =~ s/^([a-z]+:)/\e[1;39m\1\e[0m/img; # headers: bright white
+        $help =~ s/^(  --.*)$/\e[1;34m\1\e[0m/mg;  # options: bright blue
+        $help =~ s/("[^"\n]+")/\e[0;32m\1\e[0m/mg; # strings: green
+        $help =~ s/(<[^>\n]+>)/\e[0;33m\1\e[0m/mg; # URLs: yellow
+    }
+    print $help;
     exit;
 }
 
@@ -54,22 +77,8 @@ $opt{format} = lc($opt{format} // 'simple');
 # read query from STDIN by default
 $opt{query} //= '-';
 
-# use color by default if output is terminal
-$opt{color} //= -t STDOUT ? 1 : 0; ## no critic
-
 # add default prefixes by default
 $opt{'default-prefixes'} //= 1;
-
-# use color codes adopted from jq command line tool >= 1.5
-sub punctation {
-    $opt{color} ? "\e[1;39m".$_[0]."\e[0m" : $_[0] # default, bold
-}
-sub string {
-    $opt{color} ? "\e[0;32m".$_[0]."\e[0m" : $_[0] # green
-}
-sub field {
-    $opt{color} ? "\e[34;1m".$_[0]."\e[0m" : $_[0] # blue, bold
-}
 
 sub simple_node {
     if (!Scalar::Util::blessed($_[0])) {
