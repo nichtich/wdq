@@ -1,6 +1,8 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+
+0.2.1  2015-10-08 12:27:02 CEST
     - Added option to show Wikibase ontology in a nutshell
     - Improved colors
 
