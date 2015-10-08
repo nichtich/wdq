@@ -4,7 +4,7 @@ use v5.14;
 use Getopt::Long;
 use Scalar::Util;
 
-my $VERSION = '0.2.0';
+my $VERSION = '0.2.1';
 
 binmode STDOUT, ":encoding(UTF-8)";
 
