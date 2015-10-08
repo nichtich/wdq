@@ -10,28 +10,17 @@ binmode STDOUT, ":encoding(UTF-8)";
 
 my %opt;
 
-sub cDefault {
-    $opt{color} ? "\e[0;39m" . $_[0] . "\e[0m" : $_[0]    # default
+# use color codes adopted from jq command line tool >= 1.5
+sub punctation {
+    $opt{color} ? "\e[1;39m" . $_[0] . "\e[0m" : $_[0]    # default, bold
 }
 
-sub cBold {
-    $opt{color} ? "\e[1;39m" . $_[0] . "\e[0m" : $_[0]    # bold
-}
-
-sub cValue {
+sub string {
     $opt{color} ? "\e[0;32m" . $_[0] . "\e[0m" : $_[0]    # green
 }
 
-sub cName {
-    $opt{color} ? "\e[0;34m" . $_[0] . "\e[0m" : $_[0]    # blue
-}
-
-sub cIdentifier {
-    $opt{color} ? "\e[0;33m" . $_[0] . "\e[0m" : $_[0]    # yellow
-}
-
-sub cWarning {
-    $opt{color} ? "\e[1;31m" . $_[0] . "\e[0m" : $_[0]    # bold red
+sub field {
+    $opt{color} ? "\e[1;34m" . $_[0] . "\e[0m" : $_[0]    # blue, bold
 }
 
 my %namespaces = (
@@ -41,10 +30,10 @@ my %namespaces = (
     owl      => 'http://www.w3.org/2002/07/owl#',
     skos     => 'http://www.w3.org/2004/02/skos/core#',
     schema   => 'http://schema.org/',
+    cc       => 'http://creativecommons.org/ns#',
     geo      => 'http://www.opengis.net/ont/geosparql#',
     prov     => 'http://www.w3.org/ns/prov#',
     wikibase => 'http://wikiba.se/ontology#',
-    wbase    => 'http://wikiba.se/ontology#',
     wd       => 'http://www.wikidata.org/entity/',
     wdt      => 'http://www.wikidata.org/prop/direct/',
     wds      => 'http://www.wikidata.org/entity/statement/',
@@ -59,22 +48,23 @@ my %namespaces = (
     prv      => 'http://www.wikidata.org/prop/reference/value/',
     wdno     => 'http://www.wikidata.org/prop/novalue/',
 
-    # blazegraph SPARQL extensions (FIXME)
-    hint => 'http://www.bigdata.com/hint',
-    bd   => 'http://www.bigdata.com/',
-    bds  => 'http://www.bigdata.com/rdf/search#',
-    fts  => 'http://www.bigdata.com/rdf/fts#',
+    # blazegraph SPARQL extensions
+    bd  => 'http://www.bigdata.com/',
+    bds => 'http://www.bigdata.com/rdf/search#',
+    fts => 'http://www.bigdata.com/rdf/fts#',
 
-    # not used in Wikidata Query Service
-    wdata => 'http://www.wikidata.org/wiki/Special:EntityData/',
-    cc    => 'http://creativecommons.org/ns#',
+    # not used for performance reasons
+    # wdata    => 'http://www.wikidata.org/wiki/Special:EntityData/',
 );
 
 # get command line options
 Getopt::Long::Configure('bundling');
 GetOptions(
     \%opt,
-    'help|h|?', 'version|V', 'man', 'ontology', 'prefixes',
+    'help|h|?',
+    'ontology',
+    'man',
+    'version|V',
     'api=s',
     'format|f=s',
     'query|q=s',
@@ -110,13 +100,12 @@ elsif ( $opt{help} ) {
     if ( $opt{color} ) {
 
         # first line
-        $help =~ s/^wdq \[OPTIONS\](.*)$/
-            cBold("wdq ").cName("[OPTIONS]").cDefault($1)
-          /mge;
-        $help =~ s/^([a-z]+:)/cBold($1)/mgei;          # headers
-        $help =~ s/^(  --.*)$/cName($1)/mge;           # options
-        $help =~ s/("[^"\n]+")/cValue($1)/mge;         # strings
-        $help =~ s/(<[^>\n]+>)/cIdentifier($1)/mge;    # URLs
+        $help =~
+          s/^wdq (\[OPTIONS\])(.*)$/\e[1;39mwdq \e[1;34m\1\e[1;39m\2\e[0m/mg;
+        $help =~ s/^([a-z]+:)/\e[1;39m\1\e[0m/img;    # headers: bright white
+        $help =~ s/^(  --.*)$/\e[1;34m\1\e[0m/mg;     # options: bright blue
+        $help =~ s/("[^"\n]+")/\e[0;32m\1\e[0m/mg;    # strings: green
+        $help =~ s/(<[^>\n]+>)/\e[0;33m\1\e[0m/mg;    # URLs: yellow
     }
     print $help;
     exit;
@@ -128,68 +117,15 @@ elsif ( $opt{man} ) {
     $module->new->parse_from_file( $INC{'App/wdq.pm'} // $0 );
     exit;
 }
-elsif ( $opt{namespaces} ) {
+elsif ( $opt{ontology} ) {
+    say punctation("Namespaces:");
     for my $prefix ( sort keys %namespaces ) {
         printf "%8s: %s\n", $prefix, $namespaces{$prefix};
     }
     exit;
-}
-elsif ( $opt{ontology} ) {
-    my $help = <<'ONTOLOGY';
-Entity (item/property)
- wd:Q_ <-- owl:sameAs --> wd:Q_ 
-       --> rdfs:label, skos:altLabel, schema:description "_"@_
-       --> schema:dateModified, schema:version
-       --> wdt:P_ "_", URI, _:blank
-       --> p:P_ Statement
 
-Item
- wd:Q_ <-- schema:about <http://_.wikipedia.org/wiki/_>
-                        --> schema:inLanguage, wbase:badge 
-
-Property
- wd:P_ --> wbase:propertyType wbase:_
-       --> wkibase:directClaim     wdt:P_
-       --> wbase:claim             p:P_
-       --> wbase:statementProperty ps:P_
-       --> wbase:statementValue    psv:P_
-       --> wbase:qualifier         pq:P_
-       --> wbase:qualifierValue    pqv:P_
-       --> wbase:reference         pr:P_
-       --> wbase:referenceValue    prv:P_
-       --> wbase:novalue           wdno:P_
-
-Statement
- wds:_ --> wbase:rank Rank
-       --> a wdno:P_
-       --> ps:P_ "_", URI, _:blank
-       --> psv:P_ Value
-       --> pq:P_ "_", URI, _:blank
-       --> pqv:P_ Value
-       --> prov:wasDerivedFrom Reference
-
-Reference
- wdref:_ --> pr:P_ "_", URI
-         --> prv:P_ Value
-
-Rank
- wbase:NormalRank, wbase:PreferredRank, wbase:DeprecatedRank
- wbase:BestRank
-
-Value (GlobecoordinateValue/QuantityValue/TimeValue)
- wdv:_ --> wbase: geoLatitude, geoLongitude, geoPrecision, geoGlobe URI
-       --> wbase: timeValue, timePrecision, timeTimezone, timeCalendarModel
-       --> wbase: quantityAmount, quantityUpperBound, quantityLowerBound,
-                  quantityUnit URI
-ONTOLOGY
-    $help =~ s/^([a-z]+)/cBold($1)/mgei;
-    $help =~ s/ ([A-Z][A-Za-z]+)/" ".cBold($1)/mge;
-    $help =~ s/(<--|-->|--)/cDefault($1)/mge;
-    $help =~ s/ ([a-z]+:([a-zA-Z_]+)?|[a-z][a-zA-Z]+)/" ".cName($1)/mge;
-    $help =~ s/(<[^ >]+>|@[a-z_]+)/cIdentifier($1)/mge;
-    $help =~ s/("[^"\n]+")/cValue($1)/mge;
-    say $help;
-    exit;
+    # TODO:
+    # say puncation("Ontology:");
 }
 
 # default SPARQL endpoint
@@ -240,15 +176,15 @@ my %FORMATS = (
     csv => [
         json => sub {
             my ( $iter, $vars, $out ) = @_;
-            say $out join cDefault(','), map { cName($_) } @$vars;
+            say $out join punctation(','), map { field($_) } @$vars;
             while ( my $r = $iter->next ) {
-                say $out join cDefault(','), map {
+                say $out join punctation(','), map {
                     my $s = simple_node( $r->{$_} );
                     if ( $s =~ /[",\x0A\x0D]/ ) {
                         $s =~ s/"/""/g;
                         $s = "\"$s\"";
                     }
-                    cValue($s)
+                    string($s)
                 } @$vars;
             }
         }
@@ -498,6 +434,10 @@ C<https://query.wikidata.org/bigdata/namespace/wdq/sparql>
 Don't execute query but show it in expanded form. Useful to validate and
 pretty-print queries.
 
+=item --no-default-prefixes
+
+Don't add default namespace prefixes to the SPARQL query
+
 =item --help|-h|-?
 
 Show usage help
@@ -505,14 +445,6 @@ Show usage help
 =item --ontology
 
 Show information about the RDF ontology used in Wikibase
-
-=item --prefixes
-
-Show the default prefixes
-
-=item --no-default-prefixes
-
-Don't add default namespace prefixes to the SPARQL query
 
 =item --man
 

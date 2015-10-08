@@ -54,6 +54,9 @@ Get a documented list of all command line options:
   # get all parts of the solar system
   wdq -q '{ ?c wdt:P361 wd:Q544 }'
 
+  # get all references used at an item
+  wdq -q '{ wd:Q1 ?prop [ prov:wasDerivedFrom ?ref ] }'
+
   # print expanded SPARQL query 
   wdq -n -q '{ ?c wdt:P361 wd:Q544 }'
   
