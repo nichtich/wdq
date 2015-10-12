@@ -35,16 +35,19 @@ sub cWarning {
 }
 
 my %namespaces = (
-    rdf      => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-    xsd      => 'http://www.w3.org/2001/XMLSchema#',
-    rdfs     => 'http://www.w3.org/2000/01/rdf-schema#',
-    owl      => 'http://www.w3.org/2002/07/owl#',
-    skos     => 'http://www.w3.org/2004/02/skos/core#',
-    schema   => 'http://schema.org/',
-    geo      => 'http://www.opengis.net/ont/geosparql#',
-    prov     => 'http://www.w3.org/ns/prov#',
+
+    # standard ontologies
+    rdf    => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+    xsd    => 'http://www.w3.org/2001/XMLSchema#',
+    rdfs   => 'http://www.w3.org/2000/01/rdf-schema#',
+    owl    => 'http://www.w3.org/2002/07/owl#',
+    skos   => 'http://www.w3.org/2004/02/skos/core#',
+    schema => 'http://schema.org/',
+    geo    => 'http://www.opengis.net/ont/geosparql#',
+    prov   => 'http://www.w3.org/ns/prov#',
+
+    # Wikibase ontology
     wikibase => 'http://wikiba.se/ontology#',
-    wbase    => 'http://wikiba.se/ontology#',
     wd       => 'http://www.wikidata.org/entity/',
     wdt      => 'http://www.wikidata.org/prop/direct/',
     wds      => 'http://www.wikidata.org/entity/statement/',
@@ -59,9 +62,9 @@ my %namespaces = (
     prv      => 'http://www.wikidata.org/prop/reference/value/',
     wdno     => 'http://www.wikidata.org/prop/novalue/',
 
-    # blazegraph SPARQL extensions (FIXME)
-    hint => 'http://www.bigdata.com/hint',
-    bd   => 'http://www.bigdata.com/',
+    # blazegraph SPARQL extensions
+    hint => 'http://www.bigdata.com/queryHints#',
+    bd   => 'http://www.bigdata.com/rdf#',
     bds  => 'http://www.bigdata.com/rdf/search#',
     fts  => 'http://www.bigdata.com/rdf/fts#',
 
@@ -145,22 +148,22 @@ Entity (item/property)
 
 Item
  wd:Q_ <-- schema:about <http://_.wikipedia.org/wiki/_>
-                        --> schema:inLanguage, wbase:badge 
+                        --> schema:inLanguage, wikibase:badge 
 
 Property
- wd:P_ --> wbase:propertyType wbase:_
-       --> wkibase:directClaim     wdt:P_
-       --> wbase:claim             p:P_
-       --> wbase:statementProperty ps:P_
-       --> wbase:statementValue    psv:P_
-       --> wbase:qualifier         pq:P_
-       --> wbase:qualifierValue    pqv:P_
-       --> wbase:reference         pr:P_
-       --> wbase:referenceValue    prv:P_
-       --> wbase:novalue           wdno:P_
+ wd:P_ --> wikibase:propertyType wikibase:_
+       --> wkibase:directClaim        wdt:P_
+       --> wikibase:claim             p:P_
+       --> wikibase:statementProperty ps:P_
+       --> wikibase:statementValue    psv:P_
+       --> wikibase:qualifier         pq:P_
+       --> wikibase:qualifierValue    pqv:P_
+       --> wikibase:reference         pr:P_
+       --> wikibase:referenceValue    prv:P_
+       --> wikibase:novalue           wdno:P_
 
 Statement
- wds:_ --> wbase:rank Rank
+ wds:_ --> wikibase:rank Rank
        --> a wdno:P_
        --> ps:P_ "_", URI, _:blank
        --> psv:P_ Value
@@ -173,14 +176,14 @@ Reference
          --> prv:P_ Value
 
 Rank
- wbase:NormalRank, wbase:PreferredRank, wbase:DeprecatedRank
- wbase:BestRank
+ wikibase:NormalRank, wikibase:PreferredRank, wikibase:DeprecatedRank
+ wikibase:BestRank
 
 Value (GlobecoordinateValue/QuantityValue/TimeValue)
- wdv:_ --> wbase: geoLatitude, geoLongitude, geoPrecision, geoGlobe URI
-       --> wbase: timeValue, timePrecision, timeTimezone, timeCalendarModel
-       --> wbase: quantityAmount, quantityUpperBound, quantityLowerBound,
-                  quantityUnit URI
+ wdv:_ --> wikibase: geoLatitude, geoLongitude, geoPrecision, geoGlobe URI
+       --> wikibase: timeValue, timePrecision, timeTimezone, timeCalendarModel
+       --> wikibase: quantityAmount, quantityUpperBound, quantityLowerBound,
+                     quantityUnit URI
 ONTOLOGY
     $help =~ s/^([a-z]+)/cBold($1)/mgei;
     $help =~ s/ ([A-Z][A-Za-z]+)/" ".cBold($1)/mge;
@@ -361,9 +364,6 @@ my $variables;
 if ($sparql) {
     $variables = [ map { $_->name } @{ $sparql->parsed->{variables} } ];
     $query = $sparql->as_sparql;
-
-    # FIXME: use correct namespace
-    $query =~ s|PREFIX bd: <http://www.bigdata.com/>\n||m;
 }
 
 if ( $opt{'no-execute'} ) {
