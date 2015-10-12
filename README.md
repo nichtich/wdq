@@ -41,13 +41,13 @@ Get a documented list of all command line options:
 # EXAMPLES
 
     # get all parts of the solar system
-    wdq -q '{ ?c wdt:P361 wd:Q544 }'
+    wdq -q '?c wdt:P361 wd:Q544'
 
     # get all references used at an item
-    wdq -q '{ wd:Q1 ?prop [ prov:wasDerivedFrom ?ref ] }'
+    wdq -q 'wd:Q1 ?prop [ prov:wasDerivedFrom ?ref ]'
 
     # print expanded SPARQL query 
-    wdq -n -q '{ ?c wdt:P361 wd:Q544 }'
+    wdq -n -q '?c wdt:P361 wd:Q544'
     
     # execute query and return tab-separated values
     wdq -f tsv < query

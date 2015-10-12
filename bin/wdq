@@ -320,7 +320,7 @@ my $query;
     if ( $opt{query} eq '-' ) {
         $query = <STDIN>;
     }
-    elsif ( $opt{query} !~ /^\s*{/m ) {
+    elsif ( -f $opt{query} or $opt{query} !~ /[$\?\{]/ ) {
         open my $fh, '<', $opt{query}
           or die "failed to open file " . $opt{query};
         $query = <$fh>;
@@ -333,13 +333,16 @@ my $query;
     if ( $query =~ /^\s*{/m ) {
         $query = "SELECT * WHERE $query";
     }
+    elsif ( $query !~ /^[^{]*SELECT/ ) {
+        $query = "SELECT * WHERE { $query }";
+    }
 
     if ( $opt{'default-prefixes'} ) {
 
         # Add PREFIX for actually used and known prefixes
         my %ns;
         my $ps = join '|', keys %namespaces;
-        $ns{$_} = $namespaces{$_} for $query =~ /($ps):/mg;
+        $ns{$_} = $namespaces{$_} for $query =~ /($ps):[^\/]/mg;
         my @prefixes = map { "PREFIX $_: <$ns{$_}>" } sort keys %ns;
         $query = join "\n", @prefixes, $query;
     }
@@ -446,7 +449,9 @@ added automatically. If a query starts with C<{> a C<SELECT> clause is added.
 =head1 EXAMPLES
 
   # get all parts of the solar system
-  wdq -q '{ ?c wdt:P361 wd:Q544 }'
+  wdq -q '?c wdt:P361 wd:Q544' 
+  wdq -q '{ ?c wdt:P361 wd:Q544 }'                # equivalent
+  wdq -q 'SELECT * WHERE { ?c wdt:P361 wd:Q544 }' # equivalent
 
 =head1 OPTIONS
 
@@ -454,9 +459,8 @@ added automatically. If a query starts with C<{> a C<SELECT> clause is added.
 
 =item --query|-q QUERY
 
-File with query (C<-> for STDIN as default). If query begins with C<{> it is
-used as WHERE clause of a SPARQL query. PREFIX definitions are included
-automatically.
+File with query (C<-> for STDIN as default). A simple WHERE clause is expanded
+to a full SELECT statement, including PREFIX definitions.
 
 =item --format|-f FORMAT
 
