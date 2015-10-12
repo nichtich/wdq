@@ -151,7 +151,7 @@ Item
                         --> schema:inLanguage, wikibase:badge 
 
 Property
- wd:P_ --> wikibase:propertyType wikibase:_
+ wd:P_ --> wikibase:propertyType PropertyType
        --> wkibase:directClaim        wdt:P_
        --> wikibase:claim             p:P_
        --> wikibase:statementProperty ps:P_
@@ -161,6 +161,11 @@ Property
        --> wikibase:reference         pr:P_
        --> wikibase:referenceValue    prv:P_
        --> wikibase:novalue           wdno:P_
+
+PropertyType
+ wikibase: String, Url, WikibaseItem, WikibaseProperty, CommonsMedia,
+           Monolingualtext, GlobeCoordinate, Quantity, Time
+
 
 Statement
  wds:_ --> wikibase:rank Rank
@@ -176,8 +181,7 @@ Reference
          --> prv:P_ Value
 
 Rank
- wikibase:NormalRank, wikibase:PreferredRank, wikibase:DeprecatedRank
- wikibase:BestRank
+ wikibase: NormalRank, PreferredRank, DeprecatedRank, BestRank
 
 Value (GlobecoordinateValue/QuantityValue/TimeValue)
  wdv:_ --> wikibase: geoLatitude, geoLongitude, geoPrecision, geoGlobe URI
