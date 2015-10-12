@@ -84,6 +84,7 @@ GetOptions(
     'ids|i!',
     'color|C!',
     'no-execute|n!',
+    'limit=i', '1!', '2!', '3!', '4!', '5!', '6!', '7!', '8!', '9!',
     'default-prefixes!',
     'response=s',    # not documented
     'export=s',
@@ -210,6 +211,11 @@ $opt{query} //= '-';
 
 # add default prefixes by default
 $opt{'default-prefixes'} //= 1;
+
+# limit as single digit
+foreach ( grep { $opt{$_} } 1 .. 9 ) {
+    $opt{limit} = $_ if !$opt{limit} or $opt{limit} > $_;
+}
 
 sub simple_node {
     if ( !Scalar::Util::blessed( $_[0] ) ) {
@@ -373,6 +379,12 @@ if ($sparql) {
     $query = $sparql->as_sparql;
 }
 
+# LIMIT and OFFSET are always last so we can safely use regexp here
+if ( $opt{limit} ) {
+    $query =~ s/\n*LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/$1/sm;
+    $query .= "\nLIMIT $opt{limit}";
+}
+
 if ( $opt{'no-execute'} ) {
     chomp $query;
     say $query;
@@ -475,6 +487,11 @@ pipe to another tool such as L<jq|http://stedolan.github.io/jq/>,
 L<miller|http://johnkerl.org/miller/>, and 
 L<catmandu|https://github.com/LibreCat/Catmandu>. If L<Catmandu> is installed,
 its exporters can directly be used with option C<export>.
+
+=item --limit INTEGER
+
+Add or override a LIMIT clause to limitate the number of results. Single-digit
+options such as C<-1> can also be used to also set a limit.
 
 =item --export EXPORTER
 

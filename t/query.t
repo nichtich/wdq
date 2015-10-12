@@ -2,9 +2,7 @@ use v5.14;
 use Test::More;
 use Test::Output;
 
-my $exit;
-sub wdq { system( $^X, './bin/wdq', @_ ); $exit = $? >> 8 }
-sub slurp { local ( @ARGV, $/ ) = shift; <> }
+sub wdq { system( $^X, './bin/wdq', '-n', @_ ) }
 
 my $sparql = <<SPARQL;
 PREFIX wd: <http://www.wikidata.org/entity/>
@@ -21,7 +19,16 @@ foreach my $query (
     'SELECT * WHERE { ?c wdt:P361 wd:Q544 }', $sparql
   )
 {
-    stdout_is { wdq -nq => $query } $sparql, substr $query, 0, 20;
+    stdout_is { wdq -q => $query } $sparql, substr $query, 0, 20;
 }
+
+stdout_is { wdq( -q => '?a ?b ?c', '--limit' => 1 ) }
+"SELECT * WHERE {\n\t?a ?b ?c .\n}\nLIMIT 1\n", '--limit';
+
+stdout_is { wdq( -q => 'SELECT * WHERE { ?a ?b ?c } LIMIT 2', '--limit' => 3 ) }
+"SELECT * WHERE {\n\t?a ?b ?c .\n}\nLIMIT 3\n", '--limit (override)';
+
+stdout_is { wdq( '-53q' => '?a ?b ?c', '--limit' => 6 ) }
+"SELECT * WHERE {\n\t?a ?b ?c .\n}\nLIMIT 3\n", 'limit -3';
 
 done_testing;

@@ -60,8 +60,8 @@ Get a documented list of all command line options:
   # print expanded SPARQL query 
   wdq -n -q '?c wdt:P361 wd:Q544'
   
-  # execute query and return tab-separated values
-  wdq -f tsv < query
+  # execute query and return first 10 tab-separated values
+  wdq -f tsv --limit 10 < query
 
   # execute query, abbreviate Wikidata identifier, emit simple JSON
   wdq -f simple --ids < query
