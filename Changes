@@ -1,6 +1,8 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+
+0.2.2  2015-10-12 13:19:57 CEST
     - Added options to limit number of results
     - Make brackets in abbreviated query optional
     - Extended ontology help
