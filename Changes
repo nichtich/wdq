@@ -1,6 +1,10 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+    - Added options to limit number of results
+    - Make brackets in abbreviated query optional
+    - Extended ontology help
+    - Add Blazegraph namespaces bd: and hint:
 
 0.2.1  2015-10-08 12:27:02 CEST
     - Added option to show Wikibase ontology in a nutshell
