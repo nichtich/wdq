@@ -1,0 +1,18 @@
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX schema: <http://schema.org/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+SELECT ?e ?eLabel ?eDescription WHERE {
+	<https://de.wikipedia.org/wiki/Erd%C5%91s-Zahl> schema:about ?e .
+	SERVICE wikibase:label {
+		bd:serviceParam wikibase:language "fr" .
+	}
+}
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX schema: <http://schema.org/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+SELECT ?e ?eLabel ?eDescription WHERE {
+	<https://de.wikipedia.org/wiki/Erd%C5%91s-Zahl> schema:about ?e .
+	SERVICE wikibase:label {
+		bd:serviceParam wikibase:language "fr" .
+	}
+}

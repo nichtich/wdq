@@ -2,11 +2,14 @@
 use v5.14;
 
 use Getopt::Long;
+use HTTP::Tiny;
 use Scalar::Util;
 
 my $VERSION = '0.2.2';
 
-binmode STDOUT, ":encoding(UTF-8)";
+binmode( STDIN,  ":encoding(UTF-8)" );
+binmode( STDOUT, ":encoding(UTF-8)" );
+binmode( STDERR, ":encoding(UTF-8)" );
 
 my %opt;
 
@@ -82,6 +85,7 @@ GetOptions(
     'format|f=s',
     'query|q=s',
     'ids|i!',
+    'language|g=s',
     'color|C!',
     'no-execute|n!',
     'limit=i', '1!', '2!', '3!', '4!', '5!', '6!', '7!', '8!', '9!',
@@ -217,6 +221,11 @@ foreach ( grep { $opt{$_} } 1 .. 9 ) {
     $opt{limit} = $_ if !$opt{limit} or $opt{limit} > $_;
 }
 
+my $action = @ARGV && $ARGV[0] =~ /^(query|lookup)$/ ? shift @ARGV : 'query';
+
+# TODO: validate language tag
+my $language = $opt{language} // do { my $l=$ENV{LANG}; $l =~ s/_.*//; $l };
+
 sub simple_node {
     if ( !Scalar::Util::blessed( $_[0] ) ) {
         '';
@@ -324,21 +333,8 @@ my $format = $FORMATS{ $opt{format} } // do {
     exit 1;
 };
 
-my $query;
-{
-    local $/ = undef;
-    if ( $opt{query} eq '-' ) {
-        $query = <STDIN>;
-    }
-    elsif ( -f $opt{query} or $opt{query} !~ /[$\?\{]/ ) {
-        open my $fh, '<', $opt{query}
-          or die "failed to open file " . $opt{query};
-        $query = <$fh>;
-        open my $fh;
-    }
-    else {
-        $query = $opt{query};
-    }
+sub expand_query {
+    my $query = shift;
 
     if ( $query =~ /^\s*{/m ) {
         $query = "SELECT * WHERE $query";
@@ -356,24 +352,118 @@ my $query;
         my @prefixes = map { "PREFIX $_: <$ns{$_}>" } sort keys %ns;
         $query = join "\n", @prefixes, $query;
     }
+
+    $query;
 }
 
-my $sparql = do {
-    require RDF::Query;
-    my $q = RDF::Query->new($query);
-    unless ($q) {
-        if ( $opt{'force'} ) {
-            warn "SPARQL query seems invalid!\n";
-            undef;
+sub execute_query {
+    my ( $query, $format ) = @_;
+
+    my $http =
+      HTTP::Tiny->new( default_headers => { agent => "wdq/$VERSION" } );
+
+    # TODO: HTTP POST
+    my $url =
+        $opt{api} . '?'
+      . $http->www_form_urlencode( { format => $format, query => $query } );
+    $http->get($url);
+}
+
+sub parse_response {
+    my $json = shift;
+
+    require RDF::Trine::Iterator::JSONHandler;
+    my $iter = RDF::Trine::Iterator::JSONHandler->new->parse($json);
+
+    $iter = RDF::Trine::Iterator::smap(
+        sub {
+            my $r = $_;
+            foreach my $name ( keys %$r ) {
+                my $v = $r->{$name};
+                next unless $v->isa('RDF::Trine::Node::Resource');
+                next
+                  if $v->uri_value !~
+qr{^http://www.wikidata.org/(entity|prop)(/[^/]+)?/([QP]\d+|[a-z0-9]+)$};
+                $r->{$name} = RDF::Trine::Node::Literal->new($3);
+            }
+            $r;
+        },
+        $iter
+    ) if $opt{ids};
+
+    $iter;
+}
+
+if ( $action eq 'lookup' ) {
+    require URI;
+    my $result = [];
+    while (<>) {
+        chomp;
+        if ( $_ =~ /^[qp]\d+$/ ) {
+            say STDERR "not implemented yet";
         }
-        else {
-            say STDERR "Invalid SPARQL query!";
-            exit 1;
+        elsif ( $_ =~ qr{^https?://\w+.wikipedia} ) {
+            my $url = URI->new($_);
+            $url->scheme('https');
+            $url = $url->canonical->as_string;
+            my $query = expand_query(<<SPARQL);
+SELECT ?e ?eLabel ?eDescription WHERE { <$url> schema:about ?e.  
+    SERVICE wikibase:label {
+        bd:serviceParam wikibase:language "$language" .
+    }
+}
+SPARQL
+            require RDF::Query;
+            $query = RDF::Query->new($query)->as_sparql;
+            if ( $opt{'no-execute'} ) {
+                say $query;
+            }
+            else {
+                my $res = execute_query( $query, 'json' );
+                if ( $res->{success} ) {
+                    my $iter = parse_response( $res->{content} );
+                    my $vars = [qw(e eLabel eDescription)];
+                    $FORMATS{ldjson}->[1]->($iter, $vars, \*STDOUT);
+                }
+            }
         }
     }
-};
+    exit;
+}
 
-my $variables;
+my ( $query, $sparql, $variables );
+{
+    local $/ = undef;
+    if ( $opt{query} eq '-' ) {
+        $query = <STDIN>;
+    }
+    elsif ( -f $opt{query} or $opt{query} !~ /[$\?\{]/ ) {
+        open my $fh, '<', $opt{query}
+          or die "failed to open file " . $opt{query};
+        $query = <$fh>;
+        open my $fh;
+    }
+    else {
+        $query = $opt{query};
+    }
+
+    $query  = expand_query($query);
+    $sparql = do {
+        require RDF::Query;
+        my $q = RDF::Query->new($query);
+        unless ($q) {
+            if ( $opt{'force'} ) {
+                warn "SPARQL query seems invalid!\n";
+                undef;
+            }
+            else {
+                say STDERR "Invalid SPARQL query!";
+                exit 1;
+            }
+        }
+    };
+}
+
 if ($sparql) {
     $variables = [ map { $_->name } @{ $sparql->parsed->{variables} } ];
     $query = $sparql->as_sparql;
@@ -397,57 +487,25 @@ my $res =
     content => do { local ( @ARGV, $/ ) = $opt{response}; <> },
     success => 1,
   }
-  : do {
-    require HTTP::Tiny;
-
-    # TODO: HTTP POST
-    my $url =
-      $opt{api} . '?'
-      . HTTP::Tiny->www_form_urlencode(
-        {
-            format => $format->[0],
-            query  => $query,
-        }
-      );
-    HTTP::Tiny->new( default_headers => { agent => "wdq/$VERSION" } )
-      ->get($url);
-  };
+  : execute_query( $query, $format->[0] );
 
 if ( !$res->{success} ) {
     say STDERR $res->{content};
     exit 2;
 }
 
-if ( $format->[0] eq $opt{format} ) {
+if ( $format->[0] eq $opt{format} and !$opt{ids} ) {
     say $res->{content};
     exit;
 }
 
-# parse result
-require RDF::Trine::Iterator::JSONHandler;
-my $iter = RDF::Trine::Iterator::JSONHandler->new->parse( $res->{content} );
-my $vars = $variables // sort keys %{ $iter->peek };
-my $out  = \*STDOUT;
-
-if ( $opt{ids} ) {
-    $iter = RDF::Trine::Iterator::smap(
-        sub {
-            my $r = $_;
-            foreach my $name ( keys %$r ) {
-                my $v = $r->{$name};
-                next unless $v->isa('RDF::Trine::Node::Resource');
-                next
-                  if $v->uri_value !~
-qr{^http://www.wikidata.org/(entity|prop)(/[^/]+)?/([QP]\d+|[a-z0-9]+)$};
-                $r->{$name} = RDF::Trine::Node::Literal->new($3);
-            }
-            $r;
-        },
-        $iter
-    );
-}
+# convert SPARQL JSON response
+my $iter = parse_response( $res->{content} );
 
 # convert result
+my $vars = $variables // sort keys %{ $iter->peek };
+my $out = \*STDOUT;
+
 $format->[1]->( $iter, $vars, $out );
 
 __END__
