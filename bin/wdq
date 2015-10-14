@@ -2,11 +2,14 @@
 use v5.14;
 
 use Getopt::Long;
+use HTTP::Tiny;
 use Scalar::Util;
 
 my $VERSION = '0.2.2';
 
-binmode STDOUT, ":encoding(UTF-8)";
+binmode( STDIN,  ":encoding(UTF-8)" );
+binmode( STDOUT, ":encoding(UTF-8)" );
+binmode( STDERR, ":encoding(UTF-8)" );
 
 my %opt;
 
@@ -32,6 +35,10 @@ sub cIdentifier {
 
 sub cWarning {
     $opt{color} ? "\e[1;31m" . $_[0] . "\e[0m" : $_[0]    # bold red
+}
+
+sub achtung {
+    say STDERR cWarning(@_);
 }
 
 my %namespaces = (
@@ -82,6 +89,7 @@ GetOptions(
     'format|f=s',
     'query|q=s',
     'ids|i!',
+    'language|g=s',
     'color|C!',
     'no-execute|n!',
     'limit=i', '1!', '2!', '3!', '4!', '5!', '6!', '7!', '8!', '9!',
@@ -103,7 +111,14 @@ elsif ( $opt{help} ) {
     my $help;
     open my $out, '>', \$help;
     Pod::Usage::pod2usage(
-        -msg      => "wdq [OPTIONS] < query\n",
+        -msg => cBold("wdq ")
+          . cValue("[query] ")
+          . cName("[OPTIONS]")
+          . " < query\n"
+          . cBold("wdq ")
+          . cValue("lookup  ")
+          . cName("[OPTIONS]")
+          . " < ids\n",
         -sections => [qw(USAGE OPTIONS)],
         -exitval  => 'NOEXIT',
         -output   => $out,
@@ -112,11 +127,6 @@ elsif ( $opt{help} ) {
     $help =~ s/\n\n  --/\n  --/gm;
     $help =~ s/^      /    /mg;
     if ( $opt{color} ) {
-
-        # first line
-        $help =~ s/^wdq \[OPTIONS\](.*)$/
-            cBold("wdq ").cName("[OPTIONS]").cDefault($1)
-          /mge;
         $help =~ s/^([a-z]+:)/cBold($1)/mgei;          # headers
         $help =~ s/^(  --.*)$/cName($1)/mge;           # options
         $help =~ s/("[^"\n]+")/cValue($1)/mge;         # strings
@@ -200,6 +210,9 @@ ONTOLOGY
     exit;
 }
 
+# require only if actually needed
+require RDF::Query;
+
 # default SPARQL endpoint
 $opt{api} //= 'https://query.wikidata.org/bigdata/namespace/wdq/sparql';
 
@@ -217,6 +230,29 @@ foreach ( grep { $opt{$_} } 1 .. 9 ) {
     $opt{limit} = $_ if !$opt{limit} or $opt{limit} > $_;
 }
 
+my $action = @ARGV && $ARGV[0] =~ /^(query|lookup)$/ ? shift @ARGV : 'query';
+
+# TODO: validate language tag
+my $language = $opt{language} // do { my $l = $ENV{LANG}; $l =~ s/_.*//; $l };
+
+my $exporter;
+if ( $opt{export} || $opt{format} eq 'export' ) {
+    $exporter = eval { 
+        require Catmandu;
+        Catmandu->exporter( $opt{export} // 'JSON' ); 
+    };
+    if ($@) {
+        say STDERR "Option export requires Perl module " .
+            "Catmandu::Exporter::$opt{export}!";
+        exit 1;
+    }
+    elsif ( $opt{format} !~ /^(ldjson|simple)$/ ) {
+        say STDERR "Option export overrides option format!";
+        Catmandu->load();
+    }
+    $opt{format} = 'export';
+}
+
 sub simple_node {
     if ( !Scalar::Util::blessed( $_[0] ) ) {
         '';
@@ -232,113 +268,126 @@ sub simple_node {
     }
 }
 
+package App::wdq::Format {
+
+    sub new {
+        my $class = shift;
+        bless { @_ }, $class;
+        #bless { @_[ 1 .. -1 ] }, $_[0];
+    }
+
+    sub emit {
+        my ( $format, $iterator, $vars, $out ) = @_;
+        my $data = { out => $out, vars => $vars };
+        $format->{pre}->($data) if $format->{pre};
+        $iterator->each(
+            sub {
+                $format->{row}->( $data, $_[0] );
+            }
+        ) if $format->{row};
+        $format->{post}->($data) if $format->{post};
+    }
+}
+
 my %FORMATS = (
-    json => ['json'],
-    xml  => ['xml'],
+
+    # SPARQL JSON / XML
+    json => 'json',
+    xml  => 'xml',
 
     # SPARQL TSV
-    tsv => [
-        json => sub {
-            my ( $iter, $vars, $out ) = @_;
-            say $out join( "\t", map { "?$_" } @$vars );
-            while ( my $r = $iter->next ) {
-                say $out join "\t",
-                  map { Scalar::Util::blessed($_) ? $_->as_ntriples : '' }
-                  map { $r->{$_} } @$vars;
-            }
+    tsv => App::wdq::Format->new(
+        pre => sub {
+            my $o = shift;
+            say { $o->{out} } join( "\t", map { "?$_" } @{ $o->{vars} } );
+        },
+        row => sub {
+            my ( $o, $row ) = @_;
+            say { $o->{out} } join "\t",
+              map { Scalar::Util::blessed($_) ? $_->as_ntriples : '' }
+              map { $row->{$_} } @{ $o->{vars} };
         }
-    ],
+    ),
 
     # SPARQL CSV
-    csv => [
-        json => sub {
-            my ( $iter, $vars, $out ) = @_;
-            say $out join cDefault(','), map { cName($_) } @$vars;
-            while ( my $r = $iter->next ) {
-                say $out join cDefault(','), map {
-                    my $s = simple_node( $r->{$_} );
-                    if ( $s =~ /[",\x0A\x0D]/ ) {
-                        $s =~ s/"/""/g;
-                        $s = "\"$s\"";
-                    }
-                    cValue($s)
-                } @$vars;
-            }
+    csv => App::wdq::Format->new(
+        pre => sub {
+            my $o = shift;
+            say { $o->{out} } join cDefault(','),
+              map { cName($_) } @{ $o->{vars} };
+        },
+        row => sub {
+            my ( $o, $row ) = @_;
+            say { $o->{out} } join cDefault(','), map {
+                my $s = simple_node( $row->{$_} );
+                if ( $s =~ /[",\x0A\x0D]/ ) {
+                    $s =~ s/"/""/g;
+                    $s = "\"$s\"";
+                }
+                cValue($s)
+            } @{ $o->{vars} };
         }
-    ],
+    ),
 
-    # simple key-value structure
-    simple => [
-        json => sub {
-            my ( $iter, $vars, $out ) = @_;
+    # simple JSON key-value structure
+    simple => App::wdq::Format->new(
+        pre => sub {
+            my $o = shift;
+            $o->{data} = [];
+        },
+        row => sub {
+            my ( $o, $row ) = @_;
+            push @{ $o->{data} },
+              { map { $_ => simple_node( $row->{$_} ) } @{ $o->{vars} } };
+        },
+        post => sub {
             require JSON;
-            my $json = [];
-            while ( my $r = $iter->next ) {
-                push @$json, { map { $_ => simple_node( $r->{$_} ) } @$vars };
-            }
-            print $out JSON->new->pretty->canonical->encode($json);
+            my $o = shift;
+            print { $o->{out} }
+              JSON->new->pretty->canonical->encode( $o->{data} );
         }
-    ],
+    ),
 
-    # Simple Line Delimited JSON
-    ldjson => [
-        json => sub {
-            my ( $iter, $vars, $out ) = @_;
+    # simple line-delimited JSON key-value structure
+    ldjson => App::wdq::Format->new(
+        row => sub {
+            my ( $o, $row ) = @_;
             require JSON;
-            while ( my $r = $iter->next ) {
-                my $json = { map { $_ => simple_node( $r->{$_} ) } @$vars };
-                say $out JSON->new->canonical->encode($json);
-            }
+            say { $o->{out} }
+              JSON->new->canonical->encode(
+                { map { $_ => simple_node( $row->{$_} ) } @{ $o->{vars} } } );
         }
-    ],
+    ),
 
     # pipe to Catmandu exporter
-    export => [
-        json => sub {
-            my ( $iter, $vars, $out ) = @_;
-            my $exporter = Catmandu->exporter( grep { defined } $opt{export} );
-            while ( my $r = $iter->next ) {
-                my $data = { map { $_ => simple_node( $r->{$_} ) } @$vars };
-                $exporter->add($data);
-            }
-            $exporter->commit;
+    export => App::wdq::Format->new(
+        pre => sub {
+            my $o = shift;
+            $o->{exporter} = $exporter;
+        },
+        row => sub {
+            my ( $o, $row ) = @_;
+            $o->{exporter}->add(
+                { map { $_ => simple_node( $row->{$_} ) } @{ $o->{vars} } } );
+        },
+        post => sub {
+            $_[0]->{exporter}->commit;
         }
-    ]
+    ),
 );
-
-if ( $opt{export} || $opt{format} eq 'export' ) {
-    eval { require Catmandu; 1 };
-    if ($@) {
-        say STDERR "Option export requires Perl module Catmandu!";
-        exit 1;
-    }
-    elsif ( $opt{format} !~ /^(ldjson|simple)$/ ) {
-        say STDERR "Option export overrides option format!";
-        Catmandu->load();
-    }
-    $opt{format} = 'export';
-}
 
 my $format = $FORMATS{ $opt{format} } // do {
     say STDERR "Unknown format: $opt{format}";
     exit 1;
 };
 
-my $query;
-{
-    local $/ = undef;
-    if ( $opt{query} eq '-' ) {
-        $query = <STDIN>;
-    }
-    elsif ( -f $opt{query} or $opt{query} !~ /[$\?\{]/ ) {
-        open my $fh, '<', $opt{query}
-          or die "failed to open file " . $opt{query};
-        $query = <$fh>;
-        open my $fh;
-    }
-    else {
-        $query = $opt{query};
-    }
+if ($action eq 'lookup' and $format =~ /^(json|xml)$/) {
+    achtung("Format $format not supported with method lookup yet!");
+    exit 1;
+}
+
+sub expand_query {
+    my $query = shift;
 
     if ( $query =~ /^\s*{/m ) {
         $query = "SELECT * WHERE $query";
@@ -356,24 +405,153 @@ my $query;
         my @prefixes = map { "PREFIX $_: <$ns{$_}>" } sort keys %ns;
         $query = join "\n", @prefixes, $query;
     }
+
+    $query;
 }
 
-my $sparql = do {
-    require RDF::Query;
-    my $q = RDF::Query->new($query);
-    unless ($q) {
-        if ( $opt{'force'} ) {
-            warn "SPARQL query seems invalid!\n";
-            undef;
+sub execute_query {
+    my ( $query, $format ) = @_;
+
+    my $http =
+      HTTP::Tiny->new( default_headers => { agent => "wdq/$VERSION" } );
+
+    # TODO: HTTP POST
+    my $url =
+        $opt{api} . '?'
+      . $http->www_form_urlencode( { format => $format, query => $query } );
+    $http->get($url);
+}
+
+sub parse_response {
+    my ( $json, @map ) = @_;
+
+    require RDF::Trine::Iterator::JSONHandler;
+    my $iter = RDF::Trine::Iterator::JSONHandler->new->parse($json);
+
+    unshift @map, sub {
+        my $r = $_;
+        foreach my $name ( keys %$r ) {
+            my $v = $r->{$name};
+            next unless $v->isa('RDF::Trine::Node::Resource');
+            next
+              if $v->uri_value !~
+qr{^http://www.wikidata.org/(entity|prop)(/[^/]+)?/([QP]\d+|[a-z0-9]+)$};
+            $r->{$name} = RDF::Trine::Node::Literal->new($3);
+        }
+        $r;
+      }
+      if $opt{ids};
+
+    $iter = RDF::Trine::Iterator::smap( $_, $iter ) for @map;
+
+    $iter;
+}
+
+my $rEntity = qr{^
+    (https?://www\.wikidata\.org/
+     (wiki|entity|wiki/Special:EntityData)/)?
+    (?<id>(q|(Property:)?p)\d+)
+$}ix;
+
+my $rSitelink = qr{^https?://(
+    [^.]+.(
+        wikipedia | wiktionary | wikibooks | wikiquote | wikisource |
+        wikinews | wikiversity | wikivoyage
+    ) | (commons|species)\.wikimedia
+)\.org}x;
+
+# TODO: support --limit
+if ( $action eq 'lookup' ) {
+    require URI;
+    my $result  = [];
+    my $select  = 'SELECT ?id ?idLabel ?idDescription WHERE';
+    my $service = <<SPARQL;
+    SERVICE wikibase:label {
+        bd:serviceParam wikibase:language "$language" .
+    }
+SPARQL
+    my $query;
+    my $varmap = sub {
+        $_->{label}       = delete $_->{idLabel};
+        $_->{description} = delete $_->{idDescription};
+        $_;
+    };
+    my $output = {
+        out => \*STDOUT,
+        vars => [qw(id label description)]
+    };
+    while (<>) {
+        chomp;
+        s/^\s+|\s+$//g;
+        next if /^$/;    # skip empty lines
+        if ( $_ =~ $rEntity ) {
+            my $uri = "http://www.wikidata.org/entity/" . uc( $+{id} );
+            $query = "$select { BIND(<$uri> AS ?id) $service }";
+        }
+        elsif ( $_ =~ $rSitelink ) {
+            my $url = URI->new($_);
+            $url->scheme('https');
+            $url   = $url->canonical->as_string;
+            $query = "$select { <$url> schema:about ?id. $service }";
         }
         else {
-            say STDERR "Invalid SPARQL query!";
-            exit 1;
+            achtung("unknown identifier: $_");
+            next;
+        }
+        $query = RDF::Query->new( expand_query($query) )->as_sparql;
+        if ( $opt{'no-execute'} ) {
+            say $query;
+        }
+        else {
+            my $res = execute_query( $query, 'json' );
+            if ( $res->{success} ) {
+                my $iter = parse_response( $res->{content}, $varmap );
+                unless ($output->{head}) {
+                    $output->{head} = 1;
+                    $format->{pre}->($output) if $format->{pre};
+                }
+                $format->{row}->( $output, $iter->next );
+            }
         }
     }
-};
+    if ( !$opt{'no-execute'} and $format->{post} ) {
+        $format->{post}->($output);
+    }
+    exit;
+}
 
-my $variables;
+my ( $query, $sparql, $variables );
+{
+    local $/ = undef;
+    if ( $opt{query} eq '-' ) {
+        $query = <STDIN>;
+    }
+    elsif ( -f $opt{query} or $opt{query} !~ /[$\?\{]/ ) {
+        open my $fh, '<', $opt{query}
+          or die "failed to open file " . $opt{query};
+        $query = <$fh>;
+        open my $fh;
+    }
+    else {
+        $query = $opt{query};
+    }
+
+    $query  = expand_query($query);
+    $sparql = do {
+        my $q = RDF::Query->new($query);
+        unless ($q) {
+            if ( $opt{'force'} ) {
+                warn "SPARQL query seems invalid!\n";
+                undef;
+            }
+            else {
+                say STDERR "Invalid SPARQL query!";
+                exit 1;
+            }
+        }
+    };
+}
+
 if ($sparql) {
     $variables = [ map { $_->name } @{ $sparql->parsed->{variables} } ];
     $query = $sparql->as_sparql;
@@ -397,58 +575,38 @@ my $res =
     content => do { local ( @ARGV, $/ ) = $opt{response}; <> },
     success => 1,
   }
-  : do {
-    require HTTP::Tiny;
-
-    # TODO: HTTP POST
-    my $url =
-      $opt{api} . '?'
-      . HTTP::Tiny->www_form_urlencode(
-        {
-            format => $format->[0],
-            query  => $query,
-        }
-      );
-    HTTP::Tiny->new( default_headers => { agent => "wdq/$VERSION" } )
-      ->get($url);
-  };
+  : execute_query( $query, $format eq 'xml' ? $format : 'json' );
 
 if ( !$res->{success} ) {
     say STDERR $res->{content};
     exit 2;
 }
+my %FORMATS = (
+    json   => ['json'],
+    xml    => ['xml'],
+    tsv    => [ json => 'tsv' ],
+    csv    => [ json => 'csv' ],
+    simple => [ json => 'simple' ],
+    ldjson => [ json => 'ldjson' ],
+    export => [ json => 'export' ],
+);
 
-if ( $format->[0] eq $opt{format} ) {
-    say $res->{content};
-    exit;
+
+if ( $format =~ /^(json|xml)$/ ) {
+    if ( $opt{ids} ) {
+        achtung("Option ids not supported for format $format yet!");
+    } else {
+        say $res->{content};
+        exit;
+    }
 }
 
-# parse result
-require RDF::Trine::Iterator::JSONHandler;
-my $iter = RDF::Trine::Iterator::JSONHandler->new->parse( $res->{content} );
-my $vars = $variables // sort keys %{ $iter->peek };
-my $out  = \*STDOUT;
-
-if ( $opt{ids} ) {
-    $iter = RDF::Trine::Iterator::smap(
-        sub {
-            my $r = $_;
-            foreach my $name ( keys %$r ) {
-                my $v = $r->{$name};
-                next unless $v->isa('RDF::Trine::Node::Resource');
-                next
-                  if $v->uri_value !~
-qr{^http://www.wikidata.org/(entity|prop)(/[^/]+)?/([QP]\d+|[a-z0-9]+)$};
-                $r->{$name} = RDF::Trine::Node::Literal->new($3);
-            }
-            $r;
-        },
-        $iter
-    );
-}
+# convert SPARQL JSON response
+my $iterator = parse_response( $res->{content} );
 
 # convert result
-$format->[1]->( $iter, $vars, $out );
+my $vars = $variables // sort keys %{ $iterator->peek };
+$format->emit( $iterator, $vars, \*STDOUT );
 
 __END__
 
@@ -459,8 +617,10 @@ wdq - command line access to Wikidata Query Service
 =head1 USAGE
 
 Access L<Wikidata Query Service|https://query.wikidata.org/> via command line.
-A SPARQL query is read from STDIN or option C<query>. Default namespaces are
-added automatically. If a query starts with C<{> a C<SELECT> clause is added.
+In C<query> mode (default), a SPARQL query is read from STDIN or option
+C<--query>.  Default namespaces are and C<SELECT> clause are added if missing.
+In C<lookup> mode, Wikidata entity ids, URLs, or Wikimedia project URLs are
+read from STDIN to look up label and description.
 
 =head1 EXAMPLES
 
@@ -469,14 +629,16 @@ added automatically. If a query starts with C<{> a C<SELECT> clause is added.
   wdq -q '{ ?c wdt:P361 wd:Q544 }'                # equivalent
   wdq -q 'SELECT * WHERE { ?c wdt:P361 wd:Q544 }' # equivalent
 
+  # look up label and description 
+  echo Q1 | wdq lookup
+
 =head1 OPTIONS
 
 =over
 
 =item --query|-q QUERY
 
-File with query (C<-> for STDIN as default). A simple WHERE clause is expanded
-to a full SELECT statement, including PREFIX definitions.
+Query or query file (C<-> for STDIN as default)
 
 =item --format|-f FORMAT
 
@@ -507,6 +669,11 @@ Use Catmandu config file (C<catmandu.yml>) to further configure export.
 
 Return Wikidata identifiers as strings instead of URIs (except for output
 format C<xml> and C<json>).
+
+=item --language|-g
+
+Language to query labels and descriptions in. Set to the locale by default.
+This option is currentl only used on lookup mode. 
 
 =item --color|-C
 

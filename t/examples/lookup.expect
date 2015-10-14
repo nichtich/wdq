@@ -1,0 +1,108 @@
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX schema: <http://schema.org/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+SELECT ?id ?idLabel ?idDescription WHERE {
+	<https://de.wikipedia.org/wiki/Erd%C5%91s-Zahl> schema:about ?id .
+	SERVICE wikibase:label {
+		bd:serviceParam wikibase:language "fr" .
+	}
+}
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX schema: <http://schema.org/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+SELECT ?id ?idLabel ?idDescription WHERE {
+	<https://de.wikipedia.org/wiki/Erd%C5%91s-Zahl> schema:about ?id .
+	SERVICE wikibase:label {
+		bd:serviceParam wikibase:language "fr" .
+	}
+}
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+SELECT ?id ?idLabel ?idDescription WHERE {
+	{}
+	BIND(<http://www.wikidata.org/entity/Q243972> AS ?id)
+	SERVICE wikibase:label {
+		bd:serviceParam wikibase:language "fr" .
+	}
+}
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+SELECT ?id ?idLabel ?idDescription WHERE {
+	{}
+	BIND(<http://www.wikidata.org/entity/Q243972> AS ?id)
+	SERVICE wikibase:label {
+		bd:serviceParam wikibase:language "fr" .
+	}
+}
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+SELECT ?id ?idLabel ?idDescription WHERE {
+	{}
+	BIND(<http://www.wikidata.org/entity/Q1234> AS ?id)
+	SERVICE wikibase:label {
+		bd:serviceParam wikibase:language "fr" .
+	}
+}
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+SELECT ?id ?idLabel ?idDescription WHERE {
+	{}
+	BIND(<http://www.wikidata.org/entity/Q1234> AS ?id)
+	SERVICE wikibase:label {
+		bd:serviceParam wikibase:language "fr" .
+	}
+}
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+SELECT ?id ?idLabel ?idDescription WHERE {
+	{}
+	BIND(<http://www.wikidata.org/entity/Q243972> AS ?id)
+	SERVICE wikibase:label {
+		bd:serviceParam wikibase:language "fr" .
+	}
+}
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+SELECT ?id ?idLabel ?idDescription WHERE {
+	{}
+	BIND(<http://www.wikidata.org/entity/Q243972> AS ?id)
+	SERVICE wikibase:label {
+		bd:serviceParam wikibase:language "fr" .
+	}
+}
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+SELECT ?id ?idLabel ?idDescription WHERE {
+	{}
+	BIND(<http://www.wikidata.org/entity/Q243972> AS ?id)
+	SERVICE wikibase:label {
+		bd:serviceParam wikibase:language "fr" .
+	}
+}
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+SELECT ?id ?idLabel ?idDescription WHERE {
+	{}
+	BIND(<http://www.wikidata.org/entity/Q243972> AS ?id)
+	SERVICE wikibase:label {
+		bd:serviceParam wikibase:language "fr" .
+	}
+}
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+SELECT ?id ?idLabel ?idDescription WHERE {
+	{}
+	BIND(<http://www.wikidata.org/entity/P7> AS ?id)
+	SERVICE wikibase:label {
+		bd:serviceParam wikibase:language "fr" .
+	}
+}
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+SELECT ?id ?idLabel ?idDescription WHERE {
+	{}
+	BIND(<http://www.wikidata.org/entity/PROPERTY:P7> AS ?id)
+	SERVICE wikibase:label {
+		bd:serviceParam wikibase:language "fr" .
+	}
+}
