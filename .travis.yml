@@ -16,5 +16,6 @@ install:
 
 script:
   - prove -Ilocal/lib/perl5 -v
+  - echo http://de.wikipedia.org/wiki/Argon | ./bin/wdq lookup
 
 env: RELEASE_TESTING=1 AUTOMATED_TESTING=1
