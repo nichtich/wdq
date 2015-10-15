@@ -19,12 +19,12 @@ foreach my $opt (qw(--version -V)) {
 output_like { wdq '--foo' } qr/^$/, qr/^Unknown option: foo/, 'unknown option';
 is $exit, 1;
 
-stderr_is { wdq '--query', '{ ?s ?p x:foo }' }
-    "Invalid SPARQL query!\n", "validate SPARQL";
+stderr_is { wdq '--no-color', '--query', '{ ?s ?p x:foo }' }
+    "invalid SPARQL query\n", "validate SPARQL";
 is $exit, 1;
 
-stderr_is { wdq '--format', 'x' }
-    "Unknown format: x\n", "unknown format";
+stderr_is { wdq '--no-color', '--format', 'x' }
+    "unknown format: x\n", "unknown format";
 is $exit, 1;
 
 stdout_is { wdq qw(-nq t/examples/stackexchange.query) }

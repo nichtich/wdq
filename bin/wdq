@@ -92,6 +92,7 @@ GetOptions(
     'language|g=s',
     'color|C!',
     'no-execute|n!',
+    'ignore!',
     'limit=i', '1!', '2!', '3!', '4!', '5!', '6!', '7!', '8!', '9!',
     'default-prefixes!',
     'response=s',    # not documented
@@ -242,12 +243,12 @@ if ( $opt{export} || $opt{format} eq 'export' ) {
         Catmandu->exporter( $opt{export} // 'JSON' ); 
     };
     if ($@) {
-        say STDERR "Option export requires Perl module " .
-            "Catmandu::Exporter::$opt{export}!";
+        achtung("option export requires Perl module " .
+            "Catmandu::Exporter::$opt{export}");
         exit 1;
     }
     elsif ( $opt{format} !~ /^(ldjson|simple)$/ ) {
-        say STDERR "Option export overrides option format!";
+        achtung("option export overrides option format");
         Catmandu->load();
     }
     $opt{format} = 'export';
@@ -273,7 +274,6 @@ package App::wdq::Format {
     sub new {
         my $class = shift;
         bless { @_ }, $class;
-        #bless { @_[ 1 .. -1 ] }, $_[0];
     }
 
     sub emit {
@@ -344,7 +344,7 @@ my %FORMATS = (
             require JSON;
             my $o = shift;
             print { $o->{out} }
-              JSON->new->pretty->canonical->encode( $o->{data} );
+              JSON->new->pretty->canonical->encode( $o->{data} // [] );
         }
     ),
 
@@ -377,12 +377,12 @@ my %FORMATS = (
 );
 
 my $format = $FORMATS{ $opt{format} } // do {
-    say STDERR "Unknown format: $opt{format}";
+    achtung("unknown format: $opt{format}");
     exit 1;
 };
 
 if ($action eq 'lookup' and $format =~ /^(json|xml)$/) {
-    achtung("Format $format not supported with method lookup yet!");
+    achtung("format $format not supported with method lookup yet!");
     exit 1;
 }
 
@@ -480,6 +480,7 @@ SPARQL
         out => \*STDOUT,
         vars => [qw(id label description)]
     };
+    my $error = 0;
     while (<>) {
         chomp;
         s/^\s+|\s+$//g;
@@ -511,13 +512,16 @@ SPARQL
                     $format->{pre}->($output) if $format->{pre};
                 }
                 $format->{row}->( $output, $iter->next );
+            } elsif (!$opt{ignore}) {
+                achtung("not found: $_");
+                $error = 1;
             }
         }
     }
     if ( !$opt{'no-execute'} and $format->{post} ) {
         $format->{post}->($output);
     }
-    exit;
+    exit $error;
 }
 
 my ( $query, $sparql, $variables );
@@ -541,11 +545,11 @@ my ( $query, $sparql, $variables );
         my $q = RDF::Query->new($query);
         unless ($q) {
             if ( $opt{'force'} ) {
-                warn "SPARQL query seems invalid!\n";
+                achtung("SPARQL query seems invalid");
                 undef;
             }
             else {
-                say STDERR "Invalid SPARQL query!";
+                achtung("invalid SPARQL query");
                 exit 1;
             }
         }
@@ -579,7 +583,7 @@ my $res =
 
 if ( !$res->{success} ) {
     say STDERR $res->{content};
-    exit 2;
+    exit 1;
 }
 my %FORMATS = (
     json   => ['json'],
@@ -594,7 +598,7 @@ my %FORMATS = (
 
 if ( $format =~ /^(json|xml)$/ ) {
     if ( $opt{ids} ) {
-        achtung("Option ids not supported for format $format yet!");
+        achtung("option ids not supported for format $format yet!");
     } else {
         say $res->{content};
         exit;
@@ -605,8 +609,13 @@ if ( $format =~ /^(json|xml)$/ ) {
 my $iterator = parse_response( $res->{content} );
 
 # convert result
-my $vars = $variables // sort keys %{ $iterator->peek };
-$format->emit( $iterator, $vars, \*STDOUT );
+if ($opt{ignore} || $iterator->peek) {
+    my $vars = $variables // sort keys %{ $iterator->peek };
+    $format->emit( $iterator, $vars, \*STDOUT );
+} else {
+    achtung("not found");
+    exit 1;
+}
 
 __END__
 
@@ -674,6 +683,10 @@ format C<xml> and C<json>).
 
 Language to query labels and descriptions in. Set to the locale by default.
 This option is currentl only used on lookup mode. 
+
+=item --ignore
+
+Ignore empty results instead of issuing warning and exit code.
 
 =item --color|-C
 
