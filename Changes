@@ -1,6 +1,7 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+    - Add lookup mode to look up Wikidata ids by URL/ID
 
 0.2.2  2015-10-12 13:19:57 CEST
     - Added options to limit number of results

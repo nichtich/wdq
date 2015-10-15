@@ -1,7 +1,7 @@
 package App::wdq;
 use v5.14;
 
-our $VERSION = '0.2.2';
+our $VERSION = '0.3.0';
 
 1;
 __END__
@@ -44,11 +44,19 @@ the L<wdq> script to some place in your C<$PATH>:
 The latter method will not install this documentation. 
 
 =head1 USAGE
- 
+
 Get a documented list of all command line options:
 
   wdq --help
-  
+ 
+=head2 query mode (default)
+
+Pass a (possibly abbreviated) SPARQL query via STDIN or option C<--query>.
+
+=head2 lookup mode
+
+Pass a line-separated list of Wikidata identifiers or Wikimedia project URLs.
+ 
 =head1 EXAMPLES
 
   # get all parts of the solar system
@@ -68,6 +76,12 @@ Get a documented list of all command line options:
 
   # print result as Markdown Table (requires Catmandu::Exporter::Table)
   wdq --export Table < query
+
+  # look up label and description 
+  echo Q1 | wdq lookup
+
+  # look up German Wikipedia article and get label description in French
+  echo http://de.wikipedia.org/wiki/Argon | wdq lookup -g fr
 
 =head1 COPYRIGHT AND LICENSE
 

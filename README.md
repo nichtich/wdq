@@ -35,8 +35,16 @@ The latter method will not install this documentation.
 
 Get a documented list of all command line options:
 
-    wdq --help
+     wdq --help
     
+
+## query mode (default)
+
+Pass a (possibly abbreviated) SPARQL query via STDIN or option `--query`.
+
+## lookup mode
+
+Pass a line-separated list of Wikidata identifiers or Wikimedia project URLs.
 
 # EXAMPLES
 
@@ -57,6 +65,12 @@ Get a documented list of all command line options:
 
     # print result as Markdown Table (requires Catmandu::Exporter::Table)
     wdq --export Table < query
+
+    # look up label and description 
+    echo Q1 | wdq lookup
+
+    # look up German Wikipedia article and get label description in French
+    echo http://de.wikipedia.org/wiki/Argon | wdq lookup -g fr
 
 # COPYRIGHT AND LICENSE
 
