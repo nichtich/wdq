@@ -100,15 +100,25 @@ GetOptions(
 $opt{color_stderr} = $opt{color} // -t STDERR;    ## no critic
 $opt{color} //= -t STDOUT;                        ## no critic
 
+sub pod_text {
+    require Pod::Usage;
+    my $text;
+    open my $out, '>', \$text;
+    Pod::Usage::pod2usage(
+        -exit   => 'NOEXIT',
+        -output => $out,
+        indent  => 2,
+        @_
+    );
+    $text;
+}
+
 if ( $opt{version} ) {
     say "wdq $VERSION";
     exit;
 }
 elsif ( $opt{help} ) {
-    require Pod::Usage;
-    my $help;
-    open my $out, '>', \$help;
-    Pod::Usage::pod2usage(
+    my $help = pod_text(
         -msg => cBold("wdq ")
           . cValue("[query]  ")
           . cName("[OPTIONS]")
@@ -122,9 +132,6 @@ elsif ( $opt{help} ) {
           . cName("[OPTIONS]")
           . " ids...\n",
         -sections => [qw(USAGE OPTIONS)],
-        -exitval  => 'NOEXIT',
-        -output   => $out,
-        indent    => 2,
     );
     $help =~ s/\n\n  --/\n  --/gm;
     $help =~ s/^      /    /mg;
@@ -152,64 +159,19 @@ elsif ( $opt{namespaces} ) {
     exit;
 }
 elsif ( $opt{ontology} ) {
-    my $help = <<'ONTOLOGY';
-Entity (item/property)
- wd:Q_ <-- owl:sameAs --> wd:Q_ 
-       --> rdfs:label, skos:altLabel, schema:description "_"@_
-       --> schema:dateModified, schema:version
-       --> wdt:P_ "_", URI, _:blank
-       --> p:P_ Statement
-
-Item
- wd:Q_ <-- schema:about <http://_.wikipedia.org/wiki/_>
-                        --> schema:inLanguage, wikibase:badge 
-
-Property
- wd:P_ --> wikibase:propertyType PropertyType
-       --> wkibase:directClaim        wdt:P_
-       --> wikibase:claim             p:P_
-       --> wikibase:statementProperty ps:P_
-       --> wikibase:statementValue    psv:P_
-       --> wikibase:qualifier         pq:P_
-       --> wikibase:qualifierValue    pqv:P_
-       --> wikibase:reference         pr:P_
-       --> wikibase:referenceValue    prv:P_
-       --> wikibase:novalue           wdno:P_
-
-PropertyType
- wikibase: String, Url, WikibaseItem, WikibaseProperty, CommonsMedia,
-           Monolingualtext, GlobeCoordinate, Quantity, Time
-
-
-Statement
- wds:_ --> wikibase:rank Rank
-       --> a wdno:P_
-       --> ps:P_ "_", URI, _:blank
-       --> psv:P_ Value
-       --> pq:P_ "_", URI, _:blank
-       --> pqv:P_ Value
-       --> prov:wasDerivedFrom Reference
-
-Reference
- wdref:_ --> pr:P_ "_", URI
-         --> prv:P_ Value
-
-Rank
- wikibase: NormalRank, PreferredRank, DeprecatedRank, BestRank
-
-Value (GlobecoordinateValue/QuantityValue/TimeValue)
- wdv:_ --> wikibase: geoLatitude, geoLongitude, geoPrecision, geoGlobe URI
-       --> wikibase: timeValue, timePrecision, timeTimezone, timeCalendarModel
-       --> wikibase: quantityAmount, quantityUpperBound, quantityLowerBound,
-                     quantityUnit URI
-ONTOLOGY
+    my $help = pod_text(
+        -sections => ['WIKIDATA ONTOLOGY'],
+        -verbose  => 99,
+    );
+    $help =~ s/^Wikidata Ontology:\n//;
+    $help =~ s/^(    |  )//mg;
     $help =~ s/^([a-z]+)/cBold($1)/mgei;
     $help =~ s/ ([A-Z][A-Za-z]+)/" ".cBold($1)/mge;
     $help =~ s/(<--|-->|--)/cDefault($1)/mge;
     $help =~ s/ ([a-z]+:([a-zA-Z_]+)?|[a-z][a-zA-Z]+)/" ".cName($1)/mge;
     $help =~ s/(<[^ >]+>|@[a-z_]+)/cIdentifier($1)/mge;
     $help =~ s/("[^"\n]+")/cValue($1)/mge;
-    say $help;
+    print $help;
     exit;
 }
 
@@ -731,7 +693,7 @@ Show usage help
 
 =item --ontology
 
-Show information about the RDF ontology used in Wikibase
+Show information about the Wikidata Ontology
 
 =item --prefixes
 
@@ -750,6 +712,58 @@ Show detailled manual
 Show version if this script
 
 =back
+
+=head1 WIKIDATA ONTOLOGY
+
+  Entity (item/property)
+   wd:Q_ <-- owl:sameAs --> wd:Q_ 
+         --> rdfs:label, skos:altLabel, schema:description "_"@_
+         --> schema:dateModified, schema:version
+         --> wdt:P_ "_", URI, _:blank
+         --> p:P_ Statement
+
+  Item
+   wd:Q_ <-- schema:about <http://_.wikipedia.org/wiki/_>
+                          --> schema:inLanguage, wikibase:badge 
+
+  Property
+   wd:P_ --> wikibase:propertyType PropertyType
+         --> wkibase:directClaim        wdt:P_
+         --> wikibase:claim             p:P_
+         --> wikibase:statementProperty ps:P_
+         --> wikibase:statementValue    psv:P_
+         --> wikibase:qualifier         pq:P_
+         --> wikibase:qualifierValue    pqv:P_
+         --> wikibase:reference         pr:P_
+         --> wikibase:referenceValue    prv:P_
+         --> wikibase:novalue           wdno:P_
+
+  PropertyType
+   wikibase: String, Url, WikibaseItem, WikibaseProperty, CommonsMedia,
+             Monolingualtext, GlobeCoordinate, Quantity, Time
+
+
+  Statement
+   wds:_ --> wikibase:rank Rank
+         --> a wdno:P_
+         --> ps:P_ "_", URI, _:blank
+         --> psv:P_ Value
+         --> pq:P_ "_", URI, _:blank
+         --> pqv:P_ Value
+         --> prov:wasDerivedFrom Reference
+
+  Reference
+   wdref:_ --> pr:P_ "_", URI
+           --> prv:P_ Value
+
+  Rank
+   wikibase: NormalRank, PreferredRank, DeprecatedRank, BestRank
+
+  Value (GlobecoordinateValue/QuantityValue/TimeValue)
+   wdv:_ --> wikibase: geoLatitude, geoLongitude, geoPrecision, geoGlobe URI
+         --> wikibase: timeValue, timePrecision, timeTimezone, timeCalendarModel
+         --> wikibase: quantityAmount, quantityUpperBound, quantityLowerBound,
+                       quantityUnit URI
 
 =head1 COPYRIGHT AND LICENSE
 
