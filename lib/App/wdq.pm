@@ -30,14 +30,33 @@ information from Wikidata or other Wikibase instances.
 
 =head1 INSTALLATION
 
-Either install from CPAN with all dependencies:
+Perl should already installed at most operating systems. Otherwise [get Perl
+first](https://www.perl.org/get.html).
+
+=head2 FROM CPAN
+
+Install sources from CPAN including all dependencies:
 
   cpanm App::wdq
 
-or install dependencies as prebuild packages (for instance Debian) and copy
-the L<wdq> script to some place in your C<$PATH>:
+First [install cpanm](https://github.com/miyagawa/cpanminus/#installation) if
+missing. If installation of C<App::wdq> fails try cpanm option C<--notest> or
+install dependencies as packages as described below.
 
+=item PREBUILD PACKAGES
+
+Install dependencies as prebuild packages for your operating system:
+
+  # Debian based systems e.g. Ubuntu
   sudo apt-get install libhttp-tiny-perl librdf-query-perl
+
+  # Windows/ActiveState
+  ppm install HTTP-Tiny
+  ppm install RDF-Query
+
+Then install `wdq` from CPAN as described above or copy the script to some
+place in your C<$PATH>:
+
   wget https://github.com/nichtich/wdq/raw/master/bin/wdq
   chmod +x wdq
 
@@ -54,7 +73,6 @@ Get a documented list of all command line options:
 Pass a (possibly abbreviated) SPARQL query via STDIN or option C<--query>.
 
   wdq < queryfile
-  wdq -q query-or-queryfile
 
 =head2 lookup mode
 
@@ -73,14 +91,14 @@ via STDIN or command line arguments:
   # get all references used at an item
   wdq -q 'wd:Q1 ?prop [ prov:wasDerivedFrom ?ref ]'
 
+  # get doctoral advisor graph (academic genealogy) as CSV
+  wdq -q '?student wdt:P184 ?advisor' --ids --format csv
+
   # print expanded SPARQL query 
   wdq -n -q '?c wdt:P361 wd:Q544'
   
   # execute query and return first 10 tab-separated values
   wdq -f tsv --limit 10 < query
-
-  # execute query, abbreviate Wikidata identifier, emit simple JSON
-  wdq -f simple --ids < query
 
   # print result as Markdown Table (requires Catmandu::Exporter::Table)
   wdq --export Table < query
