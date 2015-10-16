@@ -431,7 +431,6 @@ qr{^http://www.wikidata.org/(entity|prop)(/[^/]+)?/([QP]\d+|[a-z0-9]+)$};
     $iter;
 }
 
-# TODO: support --limit
 if ( $mode eq 'lookup' ) {
     require URI;
     my $select  = 'SELECT ?id ?idLabel ?idDescription WHERE';
@@ -492,11 +491,18 @@ SPARQL
         }
     };
 
+    my $limit = $opt{limit} // 0;
     if (@ARGV) {
-        $lookup->($_) for @ARGV;
+        foreach (@ARGV) {
+            $lookup->($_);
+            last if !--$limit;
+        }
     }
     else {
-        $lookup->($_) while <>;
+        while (<>) {
+            $lookup->($_);
+            last if !--$limit;
+        }
     }
 
     if ( !$opt{'no-execute'} and $format->{post} ) {

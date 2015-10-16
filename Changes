@@ -2,6 +2,7 @@ Revision history for App-wdq
 
 {{$NEXT}}
     - Fix zero-result-bug in lookup mode
+    - Support limit in lookup mode
 
 0.3.1  2015-10-16 11:13:18 CEST
     - Simplify lookup by passing ids as command line arguments
