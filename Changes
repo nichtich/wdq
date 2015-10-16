@@ -1,6 +1,7 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+    - Simplify lookup by passing ids as command line arguments
     - Implement proper exit codes and option to ignore errors
 
 0.3.0  2015-10-15 16:17:33 CEST

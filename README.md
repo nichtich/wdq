@@ -42,9 +42,18 @@ Get a documented list of all command line options:
 
 Pass a (possibly abbreviated) SPARQL query via STDIN or option `--query`.
 
+    wdq < queryfile
+    wdq -q query-or-queryfile
+
 ## lookup mode
 
-Pass a line-separated list of Wikidata identifiers or Wikimedia project URLs.
+Pass a line-separated list of Wikidata identifiers or Wikimedia project URLs
+via STDIN or command line arguments:
+
+     wdq Q1
+     wdq lookup Q1
+     echo Q1 | wdq lookup
+    
 
 # EXAMPLES
 
@@ -66,11 +75,11 @@ Pass a line-separated list of Wikidata identifiers or Wikimedia project URLs.
     # print result as Markdown Table (requires Catmandu::Exporter::Table)
     wdq --export Table < query
 
-    # look up label and description 
-    echo Q1 | wdq lookup
+    # look up label and description
+    wdq Q42 P9
 
     # look up German Wikipedia article and get label description in French
-    echo http://de.wikipedia.org/wiki/Argon | wdq lookup -g fr
+    wdq -g fr http://de.wikipedia.org/wiki/Argon 
 
 # COPYRIGHT AND LICENSE
 

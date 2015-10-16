@@ -4,7 +4,7 @@
       "Jakob Voß <jakob.voss@gbv.de>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Milla version v1.0.15, Dist::Zilla version 5.020, CPAN::Meta::Converter version 2.142690",
+   "generated_by" : "Dist::Zilla version 5.035, Dist::Milla version v1.0.8, CPAN::Meta::Converter version 2.150001",
    "license" : [
       "gpl_2"
    ],
@@ -31,7 +31,7 @@
       },
       "develop" : {
          "requires" : {
-            "Dist::Milla" : "v1.0.15",
+            "Dist::Milla" : "v1.0.8",
             "Test::Pod" : "1.41"
          }
       },
@@ -61,7 +61,7 @@
          "web" : "https://github.com/nichtich/wdq"
       }
    },
-   "version" : "0.3.0",
+   "version" : "0.3.1",
    "x_contributors" : [
       "Marius Hoch <hoo@online.de>"
    ]
