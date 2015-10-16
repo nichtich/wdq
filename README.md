@@ -18,8 +18,8 @@ information from Wikidata or other Wikibase instances.
 
 # INSTALLATION
 
-Perl should already installed at most operating systems. Otherwise \[get Perl
-first\](https://www.perl.org/get.html).
+Perl should already installed at most operating systems. Otherwise
+[get Perl first](https://www.perl.org/get.html).
 
 ## FROM CPAN
 
@@ -27,7 +27,7 @@ Install sources from CPAN including all dependencies:
 
     cpanm App::wdq
 
-First \[install cpanm\](https://github.com/miyagawa/cpanminus/#installation) if
+First [install cpanm](https://github.com/miyagawa/cpanminus/#installation) if
 missing. If installation of `App::wdq` fails try cpanm option `--notest` or
 install dependencies as packages as described below.
 
