@@ -6,3 +6,4 @@ requires 'RDF::Query','2.902';  # librdf-query-perl
 
 test_requires 'Test::More';
 test_requires 'Test::Output';
+test_requires 'Test::PerlTidy';
