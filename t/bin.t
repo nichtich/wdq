@@ -7,7 +7,7 @@ sub wdq { system($^X, './bin/wdq', @_); $exit = $? >> 8 }
 sub slurp { local (@ARGV,$/) = shift; <> }
 
 foreach my $opt (qw(--help -h -?)) {
-    output_like { wdq $opt } qr/^wdq \[query\] \[OPTIONS\] < query/, qr/^$/, 'help';
+    output_like { wdq $opt } qr/^wdq \[query\]\s+\[OPTIONS\] < query/, qr/^$/, 'help';
     is $exit, 0;
 }
 

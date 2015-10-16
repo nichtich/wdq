@@ -110,13 +110,17 @@ elsif ( $opt{help} ) {
     open my $out, '>', \$help;
     Pod::Usage::pod2usage(
         -msg => cBold("wdq ")
-          . cValue("[query] ")
+          . cValue("[query]  ")
           . cName("[OPTIONS]")
           . " < query\n"
           . cBold("wdq ")
-          . cValue("lookup  ")
+          . cValue(" lookup  ")
           . cName("[OPTIONS]")
-          . " < ids\n",
+          . " < ids\n"
+          . cBold("wdq ")
+          . cValue("[lookup] ")
+          . cName("[OPTIONS]")
+          . " ids...\n",
         -sections => [qw(USAGE OPTIONS)],
         -exitval  => 'NOEXIT',
         -output   => $out,
@@ -229,7 +233,27 @@ foreach ( grep { $opt{$_} } 1 .. 9 ) {
     $opt{limit} = $_ if !$opt{limit} or $opt{limit} > $_;
 }
 
-my $action = @ARGV && $ARGV[0] =~ /^(query|lookup)$/ ? shift @ARGV : 'query';
+my $ENTITY_PATTERN = qr{^
+    (https?://www\.wikidata\.org/
+     (wiki|entity|wiki/Special:EntityData)/)?
+    (?<id>(q|(Property:)?p)\d+)
+$}ix;
+
+my $SITELINK_PATTERN = qr{^https?://(
+    [^.]+.(
+        wikipedia | wiktionary | wikibooks | wikiquote | wikisource |
+        wikinews | wikiversity | wikivoyage
+    ) | (commons|species)\.wikimedia
+)\.org}x;
+
+my $mode = !@ARGV ? 'query' : do {
+    if ( $ARGV[0] =~ /^(query|lookup)$/ ) {
+        shift @ARGV;
+    }
+    elsif ( $ARGV[0] =~ $ENTITY_PATTERN or $ARGV[0] =~ $SITELINK_PATTERN ) {
+        'lookup';
+    }
+};
 
 # TODO: validate language tag
 my $language = $opt{language} // do { my $l = $ENV{LANG}; $l =~ s/_.*//; $l };
@@ -379,7 +403,7 @@ my $format = $FORMATS{ $opt{format} } // do {
     exit 1;
 };
 
-if ( $action eq 'lookup' and $format =~ /^(json|xml)$/ ) {
+if ( $mode eq 'lookup' and $format =~ /^(json|xml)$/ ) {
     warning("format $format not supported with method lookup yet!");
     exit 1;
 }
@@ -445,23 +469,9 @@ qr{^http://www.wikidata.org/(entity|prop)(/[^/]+)?/([QP]\d+|[a-z0-9]+)$};
     $iter;
 }
 
-my $rEntity = qr{^
-    (https?://www\.wikidata\.org/
-     (wiki|entity|wiki/Special:EntityData)/)?
-    (?<id>(q|(Property:)?p)\d+)
-$}ix;
-
-my $rSitelink = qr{^https?://(
-    [^.]+.(
-        wikipedia | wiktionary | wikibooks | wikiquote | wikisource |
-        wikinews | wikiversity | wikivoyage
-    ) | (commons|species)\.wikimedia
-)\.org}x;
-
 # TODO: support --limit
-if ( $action eq 'lookup' ) {
+if ( $mode eq 'lookup' ) {
     require URI;
-    my $result  = [];
     my $select  = 'SELECT ?id ?idLabel ?idDescription WHERE';
     my $service = <<SPARQL;
     SERVICE wikibase:label {
@@ -479,15 +489,17 @@ SPARQL
         vars => [qw(id label description)]
     };
     my $error = 0;
-    while (<>) {
+
+    my $lookup = sub {
+        shift;
         chomp;
         s/^\s+|\s+$//g;
-        next if /^$/;    # skip empty lines
-        if ( $_ =~ $rEntity ) {
+        return if /^$/;    # skip empty lines
+        if ( $_ =~ $ENTITY_PATTERN ) {
             my $uri = "http://www.wikidata.org/entity/" . uc( $+{id} );
             $query = "$select { BIND(<$uri> AS ?id) $service }";
         }
-        elsif ( $_ =~ $rSitelink ) {
+        elsif ( $_ =~ $SITELINK_PATTERN ) {
             my $url = URI->new($_);
             $url->scheme('https');
             $url   = $url->canonical->as_string;
@@ -495,7 +507,7 @@ SPARQL
         }
         else {
             warning("unknown identifier: $_");
-            next;
+            return;
         }
         $query = RDF::Query->new( expand_query($query) )->as_sparql;
         if ( $opt{'no-execute'} ) {
@@ -516,7 +528,15 @@ SPARQL
                 $error = 1;
             }
         }
+    };
+
+    if (@ARGV) {
+        $lookup->($_) for @ARGV;
     }
+    else {
+        $lookup->($_) while <>;
+    }
+
     if ( !$opt{'no-execute'} and $format->{post} ) {
         $format->{post}->($output);
     }
@@ -629,7 +649,7 @@ Access L<Wikidata Query Service|https://query.wikidata.org/> via command line.
 In C<query> mode (default), a SPARQL query is read from STDIN or option
 C<--query>.  Default namespaces are and C<SELECT> clause are added if missing.
 In C<lookup> mode, Wikidata entity ids, URLs, or Wikimedia project URLs are
-read from STDIN to look up label and description.
+read from STDIN or as command line arguments to look up label and description.
 
 =head1 EXAMPLES
 
@@ -639,7 +659,9 @@ read from STDIN to look up label and description.
   wdq -q 'SELECT * WHERE { ?c wdt:P361 wd:Q544 }' # equivalent
 
   # look up label and description 
-  echo Q1 | wdq lookup
+  wdq Q1
+  wdq lookup Q1             # equivalent
+  echo Q1 | wdq lookup      # equivalent
 
 =head1 OPTIONS
 
