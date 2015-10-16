@@ -45,7 +45,8 @@
       "test" : {
          "requires" : {
             "Test::More" : "0",
-            "Test::Output" : "0"
+            "Test::Output" : "0",
+            "Test::PerlTidy" : "0"
          }
       }
    },
@@ -61,7 +62,7 @@
          "web" : "https://github.com/nichtich/wdq"
       }
    },
-   "version" : "0.3.1",
+   "version" : "0.3.2",
    "x_contributors" : [
       "Marius Hoch <hoo@online.de>"
    ]

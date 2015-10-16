@@ -1,7 +1,7 @@
 package App::wdq;
 use v5.14;
 
-our $VERSION = '0.3.1';
+our $VERSION = '0.3.2';
 
 1;
 __END__
@@ -43,7 +43,7 @@ First [install cpanm](https://github.com/miyagawa/cpanminus/#installation) if
 missing. If installation of C<App::wdq> fails try cpanm option C<--notest> or
 install dependencies as packages as described below.
 
-=item PREBUILD PACKAGES
+=head2 PREBUILD PACKAGES
 
 Install dependencies as prebuild packages for your operating system:
 

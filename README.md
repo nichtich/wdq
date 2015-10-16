@@ -18,18 +18,37 @@ information from Wikidata or other Wikibase instances.
 
 # INSTALLATION
 
-Either install from CPAN with all dependencies:
+Perl should already installed at most operating systems. Otherwise \[get Perl
+first\](https://www.perl.org/get.html).
+
+## FROM CPAN
+
+Install sources from CPAN including all dependencies:
 
     cpanm App::wdq
 
-or install dependencies as prebuild packages (for instance Debian) and copy
-the [wdq](https://metacpan.org/pod/wdq) script to some place in your `$PATH`:
+First \[install cpanm\](https://github.com/miyagawa/cpanminus/#installation) if
+missing. If installation of `App::wdq` fails try cpanm option `--notest` or
+install dependencies as packages as described below.
 
-    sudo apt-get install libhttp-tiny-perl librdf-query-perl
-    wget https://github.com/nichtich/wdq/raw/master/bin/wdq
-    chmod +x wdq
+- PREBUILD PACKAGES
 
-The latter method will not install this documentation. 
+    Install dependencies as prebuild packages for your operating system:
+
+        # Debian based systems e.g. Ubuntu
+        sudo apt-get install libhttp-tiny-perl librdf-query-perl
+
+        # Windows/ActiveState
+        ppm install HTTP-Tiny
+        ppm install RDF-Query
+
+    Then install \`wdq\` from CPAN as described above or copy the script to some
+    place in your `$PATH`:
+
+        wget https://github.com/nichtich/wdq/raw/master/bin/wdq
+        chmod +x wdq
+
+    The latter method will not install this documentation. 
 
 # USAGE
 
@@ -43,7 +62,6 @@ Get a documented list of all command line options:
 Pass a (possibly abbreviated) SPARQL query via STDIN or option `--query`.
 
     wdq < queryfile
-    wdq -q query-or-queryfile
 
 ## lookup mode
 
@@ -63,14 +81,14 @@ via STDIN or command line arguments:
     # get all references used at an item
     wdq -q 'wd:Q1 ?prop [ prov:wasDerivedFrom ?ref ]'
 
+    # get doctoral advisor graph (academic genealogy) as CSV
+    wdq -q '?student wdt:P184 ?advisor' --ids --format csv
+
     # print expanded SPARQL query 
     wdq -n -q '?c wdt:P361 wd:Q544'
     
     # execute query and return first 10 tab-separated values
     wdq -f tsv --limit 10 < query
-
-    # execute query, abbreviate Wikidata identifier, emit simple JSON
-    wdq -f simple --ids < query
 
     # print result as Markdown Table (requires Catmandu::Exporter::Table)
     wdq --export Table < query
@@ -86,3 +104,15 @@ via STDIN or command line arguments:
 Copyright Jakob Voss, 2015-
 
 GPL 2.0
+
+# POD ERRORS
+
+Hey! **The above document had some coding errors, which are explained below:**
+
+- Around line 40:
+
+    '=item' outside of any '=over'
+
+- Around line 59:
+
+    You forgot a '=back' before '=head1'
