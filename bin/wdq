@@ -14,31 +14,27 @@ binmode( STDERR, ":encoding(UTF-8)" );
 my %opt;
 
 sub cDefault {
-    $opt{color} ? "\e[0;39m" . $_[0] . "\e[0m" : $_[0]    # default
+    $opt{color} ? "\e[0;39m$_[0]\e[0m" : $_[0]    # default
 }
 
 sub cBold {
-    $opt{color} ? "\e[1;39m" . $_[0] . "\e[0m" : $_[0]    # bold
+    $opt{color} ? "\e[1;39m$_[0]\e[0m" : $_[0]    # bold
 }
 
 sub cValue {
-    $opt{color} ? "\e[0;32m" . $_[0] . "\e[0m" : $_[0]    # green
+    $opt{color} ? "\e[0;32m$_[0]\e[0m" : $_[0]    # green
 }
 
 sub cName {
-    $opt{color} ? "\e[0;34m" . $_[0] . "\e[0m" : $_[0]    # blue
+    $opt{color} ? "\e[0;34m$_[0]\e[0m" : $_[0]    # blue
 }
 
 sub cIdentifier {
-    $opt{color} ? "\e[0;33m" . $_[0] . "\e[0m" : $_[0]    # yellow
+    $opt{color} ? "\e[0;33m$_[0]\e[0m" : $_[0]    # yellow
 }
 
-sub cWarning {
-    $opt{color} ? "\e[1;31m" . $_[0] . "\e[0m" : $_[0]    # bold red
-}
-
-sub achtung {
-    say STDERR cWarning(@_);
+sub warning {
+    say STDERR $opt{color_stderr} ? "\e[1;31m$_[0]\e[0m" : $_[0]    # bold red
 }
 
 my %namespaces = (
@@ -101,7 +97,8 @@ GetOptions(
 ) or exit 1;
 
 # use color by default if output is terminal
-$opt{color} //= -t STDOUT ? 1 : 0;    ## no critic
+$opt{color_stderr} = $opt{color} // -t STDERR;    ## no critic
+$opt{color} //= -t STDOUT;                        ## no critic
 
 if ( $opt{version} ) {
     say "wdq $VERSION";
@@ -138,8 +135,9 @@ elsif ( $opt{help} ) {
 }
 elsif ( $opt{man} ) {
     my $module = $opt{color} ? 'Pod::Text::Color' : 'Pod::Text';
-    eval "require $module";     ## no critic
-    eval "require App::wdq";    # may fail if pure script installed by hand
+
+    # may fail if pure script installed by hand
+    eval "require $module; require App::wdq";          ## no critic
     $module->new->parse_from_file( $INC{'App/wdq.pm'} // $0 );
     exit;
 }
@@ -238,17 +236,17 @@ my $language = $opt{language} // do { my $l = $ENV{LANG}; $l =~ s/_.*//; $l };
 
 my $exporter;
 if ( $opt{export} || $opt{format} eq 'export' ) {
-    $exporter = eval { 
+    $exporter = eval {
         require Catmandu;
-        Catmandu->exporter( $opt{export} // 'JSON' ); 
+        Catmandu->exporter( $opt{export} // 'JSON' );
     };
     if ($@) {
-        achtung("option export requires Perl module " .
-            "Catmandu::Exporter::$opt{export}");
+        warning("option export requires Perl module "
+              . "Catmandu::Exporter::$opt{export}" );
         exit 1;
     }
     elsif ( $opt{format} !~ /^(ldjson|simple)$/ ) {
-        achtung("option export overrides option format");
+        warning("option export overrides option format");
         Catmandu->load();
     }
     $opt{format} = 'export';
@@ -273,7 +271,7 @@ package App::wdq::Format {
 
     sub new {
         my $class = shift;
-        bless { @_ }, $class;
+        bless {@_}, $class;
     }
 
     sub emit {
@@ -377,12 +375,12 @@ my %FORMATS = (
 );
 
 my $format = $FORMATS{ $opt{format} } // do {
-    achtung("unknown format: $opt{format}");
+    warning("unknown format: $opt{format}");
     exit 1;
 };
 
-if ($action eq 'lookup' and $format =~ /^(json|xml)$/) {
-    achtung("format $format not supported with method lookup yet!");
+if ( $action eq 'lookup' and $format =~ /^(json|xml)$/ ) {
+    warning("format $format not supported with method lookup yet!");
     exit 1;
 }
 
@@ -477,7 +475,7 @@ SPARQL
         $_;
     };
     my $output = {
-        out => \*STDOUT,
+        out  => \*STDOUT,
         vars => [qw(id label description)]
     };
     my $error = 0;
@@ -496,7 +494,7 @@ SPARQL
             $query = "$select { <$url> schema:about ?id. $service }";
         }
         else {
-            achtung("unknown identifier: $_");
+            warning("unknown identifier: $_");
             next;
         }
         $query = RDF::Query->new( expand_query($query) )->as_sparql;
@@ -507,13 +505,14 @@ SPARQL
             my $res = execute_query( $query, 'json' );
             if ( $res->{success} ) {
                 my $iter = parse_response( $res->{content}, $varmap );
-                unless ($output->{head}) {
+                unless ( $output->{head} ) {
                     $output->{head} = 1;
                     $format->{pre}->($output) if $format->{pre};
                 }
                 $format->{row}->( $output, $iter->next );
-            } elsif (!$opt{ignore}) {
-                achtung("not found: $_");
+            }
+            elsif ( !$opt{ignore} ) {
+                warning("not found: $_");
                 $error = 1;
             }
         }
@@ -545,11 +544,11 @@ my ( $query, $sparql, $variables );
         my $q = RDF::Query->new($query);
         unless ($q) {
             if ( $opt{'force'} ) {
-                achtung("SPARQL query seems invalid");
+                warning("SPARQL query seems invalid");
                 undef;
             }
             else {
-                achtung("invalid SPARQL query");
+                warning("invalid SPARQL query");
                 exit 1;
             }
         }
@@ -595,11 +594,11 @@ my %FORMATS = (
     export => [ json => 'export' ],
 );
 
-
 if ( $format =~ /^(json|xml)$/ ) {
     if ( $opt{ids} ) {
-        achtung("option ids not supported for format $format yet!");
-    } else {
+        warning("option ids not supported for format $format yet!");
+    }
+    else {
         say $res->{content};
         exit;
     }
@@ -609,11 +608,12 @@ if ( $format =~ /^(json|xml)$/ ) {
 my $iterator = parse_response( $res->{content} );
 
 # convert result
-if ($opt{ignore} || $iterator->peek) {
+if ( $opt{ignore} || $iterator->peek ) {
     my $vars = $variables // sort keys %{ $iterator->peek };
     $format->emit( $iterator, $vars, \*STDOUT );
-} else {
-    achtung("not found");
+}
+else {
+    warning("not found");
     exit 1;
 }
 
