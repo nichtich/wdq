@@ -1,6 +1,8 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+
+0.3.2  2015-10-16 14:14:24 CEST
     - Fix zero-result-bug in lookup mode
     - Support limit in lookup mode
     - Enable streaming output of simple JSON format

@@ -31,24 +31,24 @@ First \[install cpanm\](https://github.com/miyagawa/cpanminus/#installation) if
 missing. If installation of `App::wdq` fails try cpanm option `--notest` or
 install dependencies as packages as described below.
 
-- PREBUILD PACKAGES
+## PREBUILD PACKAGES
 
-    Install dependencies as prebuild packages for your operating system:
+Install dependencies as prebuild packages for your operating system:
 
-        # Debian based systems e.g. Ubuntu
-        sudo apt-get install libhttp-tiny-perl librdf-query-perl
+    # Debian based systems e.g. Ubuntu
+    sudo apt-get install libhttp-tiny-perl librdf-query-perl
 
-        # Windows/ActiveState
-        ppm install HTTP-Tiny
-        ppm install RDF-Query
+    # Windows/ActiveState
+    ppm install HTTP-Tiny
+    ppm install RDF-Query
 
-    Then install \`wdq\` from CPAN as described above or copy the script to some
-    place in your `$PATH`:
+Then install \`wdq\` from CPAN as described above or copy the script to some
+place in your `$PATH`:
 
-        wget https://github.com/nichtich/wdq/raw/master/bin/wdq
-        chmod +x wdq
+    wget https://github.com/nichtich/wdq/raw/master/bin/wdq
+    chmod +x wdq
 
-    The latter method will not install this documentation. 
+The latter method will not install this documentation. 
 
 # USAGE
 
@@ -104,15 +104,3 @@ via STDIN or command line arguments:
 Copyright Jakob Voss, 2015-
 
 GPL 2.0
-
-# POD ERRORS
-
-Hey! **The above document had some coding errors, which are explained below:**
-
-- Around line 40:
-
-    '=item' outside of any '=over'
-
-- Around line 59:
-
-    You forgot a '=back' before '=head1'
