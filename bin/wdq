@@ -317,18 +317,23 @@ my %FORMATS = (
     simple => App::wdq::Format->new(
         pre => sub {
             my $o = shift;
-            $o->{data} = [];
+            $o->{count} = 0;
+            print { $o->{out} } "[";
         },
         row => sub {
             my ( $o, $row ) = @_;
-            push @{ $o->{data} },
-              { map { $_ => simple_node( $row->{$_} ) } @{ $o->{vars} } };
+            my $json = JSON->new->pretty->canonical->encode(
+                { map { $_ => simple_node( $row->{$_} ) } @{ $o->{vars} } } );
+            chomp $json;
+            $json =~ s/^/   /mg;
+            print { $o->{out} } "," if $o->{count}++;
+            print { $o->{out} } "\n", $json;
         },
         post => sub {
             require JSON;
             my $o = shift;
-            print { $o->{out} }
-              JSON->new->pretty->canonical->encode( $o->{data} // [] );
+            print "\n" if $o->{count};
+            say "]";
         }
     ),
 
