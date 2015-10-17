@@ -101,7 +101,7 @@ PREFIX bd: <http://www.bigdata.com/rdf#>
 PREFIX wikibase: <http://wikiba.se/ontology#>
 SELECT ?id ?idLabel ?idDescription WHERE {
 	{}
-	BIND(<http://www.wikidata.org/entity/PROPERTY:P7> AS ?id)
+	BIND(<http://www.wikidata.org/entity/P7> AS ?id)
 	SERVICE wikibase:label {
 		bd:serviceParam wikibase:language "fr" .
 	}

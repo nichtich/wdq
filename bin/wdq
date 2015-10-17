@@ -195,7 +195,7 @@ foreach ( grep { $opt{$_} } 1 .. 9 ) {
 my $ENTITY_PATTERN = qr{^
     (https?://www\.wikidata\.org/
      (wiki|entity|wiki/Special:EntityData)/)?
-    (?<id>(q|(Property:)?p)\d+)
+     (?<id>(q|(Property:)?p)\d+)
 $}ix;
 
 my $SITELINK_PATTERN = qr{^https?://(
@@ -491,7 +491,9 @@ SPARQL
         s/^\s+|\s+$//g;
         return if /^$/;    # skip empty lines
         if ( $_ =~ $ENTITY_PATTERN ) {
-            my $uri = "http://www.wikidata.org/entity/" . uc( $+{id} );
+            my $id = $+{id};
+            $id =~ s/Property://i; 
+            my $uri = "http://www.wikidata.org/entity/" . uc( $id );
             $query = "$select { BIND(<$uri> AS ?id) $service }";
         }
         elsif ( $_ =~ $SITELINK_PATTERN ) {

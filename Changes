@@ -2,6 +2,7 @@ Revision history for App-wdq
 
 {{$NEXT}}
     - Better abbreviated URIs as qnames
+    - Fix lookup of "Property:P_"
 
 0.3.2  2015-10-16 14:14:24 CEST
     - Fix zero-result-bug in lookup mode
