@@ -8,11 +8,10 @@ my $sparql = <<SPARQL;
 PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
 SELECT * WHERE {
-\t?c <http://www.wikidata.org/prop/direct/P361> <http://www.wikidata.org/entity/Q544> .
+\t?c wdt:P361 wd:Q544 .
 }
 SPARQL
 
-# FIXME: use namespace prefixes in expanded SPARQL query
 foreach my $query (
     '?c wdt:P361 wd:Q544',
     '{ ?c wdt:P361 wd:Q544 }',

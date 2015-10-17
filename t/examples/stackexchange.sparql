@@ -2,7 +2,7 @@ PREFIX bd: <http://www.bigdata.com/rdf#>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
 PREFIX wikibase: <http://wikiba.se/ontology#>
 SELECT ?q ?qLabel ?tag WHERE {
-	?q <http://www.wikidata.org/prop/direct/P1482> ?tag .
+	?q wdt:P1482 ?tag .
 	SERVICE wikibase:label {
 		bd:serviceParam wikibase:language "en" .
 	}

@@ -175,9 +175,6 @@ elsif ( $opt{ontology} ) {
     exit;
 }
 
-# require only if actually needed
-require RDF::Query;
-
 # default SPARQL endpoint
 $opt{api} //= 'https://query.wikidata.org/bigdata/namespace/wdq/sparql';
 
@@ -216,6 +213,38 @@ my $mode = !@ARGV ? 'query' : do {
         'lookup';
     }
 };
+
+# require only if actually needed
+require RDF::Query;
+
+# monkey-patch RDF::Query to keep minimum required version at Ubuntu 14.04 LTS
+require version;
+if (version->parse($RDF::Query::VERSION) < version->parse('2.915_01')) {
+    require RDF::Query::Parser::SPARQL;
+    require Encode;
+    *RDF::Query::Node::Resource::as_sparql = sub {
+        my $self    = shift;
+        my $context = shift || {};
+        my $uri     = $self->uri_value;
+        my $ns      = $context->{namespaces} || {};
+        my %ns      = %$ns;
+        foreach my $k (keys %ns) {
+            no warnings 'uninitialized';
+            if ($k eq '__DEFAULT__') {
+                $k  = '';
+            }
+            my $v   = $ns{ $k };
+            if (index($uri, $v) == 0) {
+                my $local   = substr($uri, length($v));
+                if ($local =~ $RDF::Query::Parser::SPARQL::r_PN_LOCAL) {
+                    my $qname   = join(':', $k, $local);
+                    return $qname;
+                }
+            }
+        }
+        '<' . URI->new(Encode::encode_utf8($self->uri_value))->canonical . '>'
+    }
+} 
 
 # TODO: validate language tag
 my $language = $opt{language} // do { my $l = $ENV{LANG}; $l =~ s/_.*//; $l };
