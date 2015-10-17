@@ -5,7 +5,7 @@ use Getopt::Long;
 use HTTP::Tiny;
 use Scalar::Util;
 
-my $VERSION = '0.3.2';
+my $VERSION = '0.3.3';
 
 binmode( STDIN,  ":encoding(UTF-8)" );
 binmode( STDOUT, ":encoding(UTF-8)" );
@@ -219,7 +219,7 @@ require RDF::Query;
 
 # monkey-patch RDF::Query to keep minimum required version at Ubuntu 14.04 LTS
 require version;
-if (version->parse($RDF::Query::VERSION) < version->parse('2.915_01')) {
+if ( version->parse($RDF::Query::VERSION) < version->parse('2.915_01') ) {
     require RDF::Query::Parser::SPARQL;
     require Encode;
     *RDF::Query::Node::Resource::as_sparql = sub {
@@ -228,23 +228,25 @@ if (version->parse($RDF::Query::VERSION) < version->parse('2.915_01')) {
         my $uri     = $self->uri_value;
         my $ns      = $context->{namespaces} || {};
         my %ns      = %$ns;
-        foreach my $k (keys %ns) {
+        foreach my $k ( keys %ns ) {
             no warnings 'uninitialized';
-            if ($k eq '__DEFAULT__') {
-                $k  = '';
+            if ( $k eq '__DEFAULT__' ) {
+                $k = '';
             }
-            my $v   = $ns{ $k };
-            if (index($uri, $v) == 0) {
-                my $local   = substr($uri, length($v));
-                if ($local =~ $RDF::Query::Parser::SPARQL::r_PN_LOCAL) {
-                    my $qname   = join(':', $k, $local);
+            my $v = $ns{$k};
+            if ( index( $uri, $v ) == 0 ) {
+                my $local = substr( $uri, length($v) );
+                if ( $local =~ $RDF::Query::Parser::SPARQL::r_PN_LOCAL ) {
+                    my $qname = join( ':', $k, $local );
                     return $qname;
                 }
             }
         }
-        '<' . URI->new(Encode::encode_utf8($self->uri_value))->canonical . '>'
-    }
-} 
+        '<'
+          . URI->new( Encode::encode_utf8( $self->uri_value ) )->canonical
+          . '>';
+      }
+}
 
 # TODO: validate language tag
 my $language = $opt{language} // do { my $l = $ENV{LANG}; $l =~ s/_.*//; $l };
@@ -492,8 +494,8 @@ SPARQL
         return if /^$/;    # skip empty lines
         if ( $_ =~ $ENTITY_PATTERN ) {
             my $id = $+{id};
-            $id =~ s/Property://i; 
-            my $uri = "http://www.wikidata.org/entity/" . uc( $id );
+            $id =~ s/Property://i;
+            my $uri = "http://www.wikidata.org/entity/" . uc($id);
             $query = "$select { BIND(<$uri> AS ?id) $service }";
         }
         elsif ( $_ =~ $SITELINK_PATTERN ) {
