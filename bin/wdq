@@ -203,6 +203,13 @@ my $ENTITY_PATTERN = qr{^
      (?<id>(q|(Property:)?p)\d+)
 $}ix;
 
+my $WIKIDATA_ID_PATTERN = qr{^
+    http://www\.wikidata\.org/
+    ( entity (/statement)? | reference | value |
+      prop (/(statement|qualifier|reference)/value)?)
+    /(?<id>.+)
+$}x;
+
 my $SITELINK_PATTERN = qr{^https?://(
     [^.]+.(
         wikipedia | wiktionary | wikibooks | wikiquote | wikisource |
@@ -459,10 +466,16 @@ sub parse_response {
         foreach my $name ( keys %$r ) {
             my $v = $r->{$name};
             next unless $v->isa('RDF::Trine::Node::Resource');
-            next
-              if $v->uri_value !~
-qr{^http://www.wikidata.org/(entity|prop)(/[^/]+)?/([QP]\d+|[a-z0-9]+)$};
-            $r->{$name} = RDF::Trine::Node::Literal->new($3);
+            my $id = do {
+                if ( $v->uri_value =~ $ENTITY_PATTERN ) {
+                    $+{id};
+                }
+                elsif ( $v->uri_value =~ $WIKIDATA_ID_PATTERN ) {
+                    $+{id};
+                }
+              }
+              // next;
+            $r->{$name} = RDF::Trine::Node::Literal->new($id);
         }
         $r;
       }
