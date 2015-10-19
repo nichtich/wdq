@@ -1,6 +1,7 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+    - New option no-header to omit header in CSV or export format
 
 0.3.3  2015-10-17 21:11:41 CEST
     - Better abbreviated URIs as qnames

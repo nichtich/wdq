@@ -87,6 +87,8 @@ GetOptions(
     'ids|i!',
     'language|g=s',
     'color|C!',
+    'header!',
+    'H!',
     'no-execute|n!',
     'ignore!',
     'limit=i', '1!', '2!', '3!', '4!', '5!', '6!', '7!', '8!', '9!',
@@ -187,6 +189,9 @@ $opt{query} //= '-';
 # add default prefixes by default
 $opt{'default-prefixes'} //= 1;
 
+# include header in output
+$opt{header} //= $opt{H} ? 0 : 1;
+
 # limit as single digit
 foreach ( grep { $opt{$_} } 1 .. 9 ) {
     $opt{limit} = $_ if !$opt{limit} or $opt{limit} > $_;
@@ -255,7 +260,7 @@ my $exporter;
 if ( $opt{export} || $opt{format} eq 'export' ) {
     $exporter = eval {
         require Catmandu;
-        Catmandu->exporter( $opt{export} // 'JSON' );
+        Catmandu->exporter( $opt{export} // 'JSON', header => $opt{header} );
     };
     if ($@) {
         warning("option export requires Perl module "
@@ -329,7 +334,8 @@ my %FORMATS = (
         pre => sub {
             my $o = shift;
             say { $o->{out} } join cDefault(','),
-              map { cName($_) } @{ $o->{vars} };
+              map { cName($_) } @{ $o->{vars} }
+              if $opt{header};
         },
         row => sub {
             my ( $o, $row ) = @_;
@@ -691,6 +697,10 @@ its exporters can directly be used with option C<export>.
 
 Add or override a LIMIT clause to limitate the number of results. Single-digit
 options such as C<-1> can also be used to also set a limit.
+
+=item --no-header|-H
+
+Exclude header in CSV output or other exporter.
 
 =item --export EXPORTER
 

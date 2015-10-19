@@ -21,6 +21,11 @@ z,x,y
 ",http://www.wikidata.org/entity/Q123,http://www.example.org/
 OUT
 
+stdout_is { wdq qw(-f csv -H -q t/examples/query.query) } <<OUT, 'csv w/o header';
+"\x{e2}\x{98}\x{83}
+",http://www.wikidata.org/entity/Q123,http://www.example.org/
+OUT
+
 stdout_is { wdq qw(-f tsv -q t/examples/query.query) } <<OUT, 'tsv';
 ?z\t?x\t?y
 "\\u2603\\n"\@en\t<http://www.wikidata.org/entity/Q123>\t<http://www.example.org/>
@@ -35,13 +40,18 @@ stdout_is { wdq qw(--ids -f tsv -q t/examples/query.query) } <<OUT, 'ids';
 "\\u2603\\n"\@en\t"Q123"\t<http://www.example.org/>
 OUT
 
-if ( eval { require 'Catmandu::Exporter::Table'; 1 } ) {
-output_is { wdq qw(--export Table -q t/examples/query.query -f csv) }
-    <<OUT, "Option export overrides option format!\n", 'export';
+if ( eval { require Catmandu::Exporter::Table; 1 } ) {
+    output_is { wdq qw(--export Table -q t/examples/query.query -f csv) }
+    <<OUT, "option export overrides option format\n", 'export';
 | x                                   | y                       | z  |
 |-------------------------------------|-------------------------|----|
 | http://www.wikidata.org/entity/Q123 | http://www.example.org/ | ☃  |
 OUT
+
+    stdout_is { wdq qw(--export CSV --no-header -q t/examples/query.query) }
+    "http://www.wikidata.org/entity/Q123,http://www.example.org/,\"☃\\n\"\n",
+    "exporter with --no-header";
+    
 } else {
     note "Skipping option --export"
 }

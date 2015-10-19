@@ -31,7 +31,7 @@ information from Wikidata or other Wikibase instances.
 =head1 INSTALLATION
 
 Perl should already installed at most operating systems. Otherwise
-L<get Perl first|https://www.perl.org/get.html>.
+L<get Perl!|https://www.perl.org/get.html>
 
 =head2 FROM CPAN
 
@@ -47,14 +47,14 @@ install dependencies as packages as described below.
 
 Install dependencies as prebuild packages for your operating system:
 
-  # Debian based systems e.g. Ubuntu
+  # Debian based systems e.g. Ubuntu (>= 14.04)
   sudo apt-get install libhttp-tiny-perl librdf-query-perl
 
   # Windows/ActiveState
   ppm install HTTP-Tiny
   ppm install RDF-Query
 
-Then install `wdq` from CPAN as described above or copy the script to some
+Then install C<wdq> from CPAN as described above or copy the script to some
 place in your C<$PATH>:
 
   wget https://github.com/nichtich/wdq/raw/master/bin/wdq
