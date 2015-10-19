@@ -1,6 +1,8 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+
+0.3.4  2015-10-19 16:10:08 CEST
     - New option no-header to omit header in CSV or export format
     - Extend option ids to more types of Wikidata URIs
 
