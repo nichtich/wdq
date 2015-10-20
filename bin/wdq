@@ -336,11 +336,47 @@ package App::wdq::Format {
     }
 }
 
+sub json_string {
+    JSON->new->allow_nonref->encode(shift);
+}
+
 my %FORMATS = (
 
-    # SPARQL JSON / XML
-    json => 'json',
-    xml  => 'xml',
+    # SPARQL Query Results JSON
+    json => App::wdq::Format->new(
+        pre => sub {
+            my $o = shift;
+            print { $o->{out} }
+              "{\n  \"head\": {\n    \"vars\": [",
+              join( ", ", map { cName( json_string($_) ) } @{ $o->{vars} } ),
+              "]\n  },\n  \"results\": {\n    \"bindings\": [";
+        },
+        row => sub {
+            my ( $o, $row ) = @_;
+            print { $o->{out} } $o->{count}++ ? ", {\n" : " {\n";
+            my $delim = 0;
+            foreach my $v ( @{ $o->{vars} } ) {
+                print { $o->{out} } ",\n" if $delim++;
+                print { $o->{out} } "      " . cName( json_string($v) ) . ": ";
+                my $node = $row->{$v}->as_hashref;
+                $node->{'xml:lang'} = delete $node->{lang} if $node->{lang};
+                my $json = JSON->new->pretty->canonical->encode($node);
+                $json =~ s/^ /      /mg;
+                $json =~ s/}\n$/      }/;
+                $json =~
+                  s/^(\s+"[a-z:]+")\s*:(.*")(,)?$/"$1:".cValue($2).$3/mge;
+                print { $o->{out} } "$json";
+            }
+            print { $o->{out} } "\n    }";
+        },
+        post => sub {
+            my $o = shift;
+            print { $o->{out} } " ]\n  }\n}\n";
+        }
+    ),
+
+    # SPARQL Query Results XML
+    xml => 'xml',
 
     # SPARQL TSV
     tsv => App::wdq::Format->new(
@@ -397,13 +433,13 @@ my %FORMATS = (
             require JSON;
             my $o = shift;
             if ( $o->{count} ) {
-                say "\n]";
+                say { $o->{out} } "\n]";
             }
             elsif ( defined $o->{count} ) {
-                say "]";
+                say { $o->{out} } "]";
             }
             else {
-                say "[]";
+                say { $o->{out} } "[]";
             }
         }
     ),
@@ -706,9 +742,9 @@ if ( !$res->{success} ) {
     exit 1;
 }
 
-if ( $format =~ /^(json|xml)$/ ) {
+if ( $format eq 'xml' ) {
     if ( $OPT{ids} ) {
-        warning("option ids not supported for format $format yet!");
+        warning("option ids not supported for format xml yet!");
     }
     else {
         say $res->{content};
@@ -794,8 +830,7 @@ Use Catmandu config file (C<catmandu.yml>) to further configure export.
 
 =item --ids|-i
 
-Return Wikidata identifiers as strings instead of URIs (except for output
-format C<xml> and C<json>).
+Abbreviate Wikidata identifier URIs as strings (except output format C<xml>).
 
 =item --language|-g
 

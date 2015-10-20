@@ -5,6 +5,31 @@ use Test::Output;
 my $exit;
 sub wdq { system($^X, qw(./bin/wdq --response t/examples/response.json), @_) }
 
+stdout_is { wdq qw(-q t/examples/query.query -fjson -i) } <<'OUT', 'json';
+{
+  "head": {
+    "vars": ["z", "x", "y"]
+  },
+  "results": {
+    "bindings": [ {
+      "z": {
+        "type": "literal",
+        "value": "☃\n",
+        "xml:lang": "en"
+      },
+      "x": {
+        "type": "literal",
+        "value": "Q123"
+      },
+      "y": {
+        "type": "uri",
+        "value": "http://www.example.org/"
+      }
+    } ]
+  }
+}
+OUT
+
 stdout_is { wdq qw(-q t/examples/query.query) } <<OUT, 'simple (default)';
 [
    {
