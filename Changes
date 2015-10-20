@@ -1,6 +1,8 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+
+0.3.5  2015-10-20 12:25:46 CEST
     - Use MediaWiki API to resolve URLs to Wikidata items
     - New option no-mediawiki to disable MediaWiki API requests
     - Validate option language
