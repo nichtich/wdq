@@ -6,7 +6,7 @@ use HTTP::Tiny;
 use Scalar::Util qw(blessed);
 use Encode qw(decode_utf8 encode_utf8);
 
-our $VERSION = '0.3.4';
+our $VERSION = '0.3.5';
 
 # Assume everything outside is UTF-8
 binmode( STDIN,  ":encoding(UTF-8)" );
