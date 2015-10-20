@@ -1,9 +1,9 @@
 # wdq coding guidelines
 
 **wdq** is written in Perl. The current version is one single Perl script,
-located in `bin/wdq`. Files in `lib/` are optional for documentation only.  A
-future version may better be organized in modules and use `App::FatPacker` to
-build a single executable.
+located in `bin/wdq`. Files in `lib/` are optional for documentation only.
+Global variables are UPPERCASE.  A future version may better be organized in
+modules and use `App::FatPacker` to build a single executable.
 
 Code MUST be cleaned up with standard `perltidy`:
 

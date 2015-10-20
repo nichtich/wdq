@@ -30,4 +30,8 @@ is $exit, 1;
 stdout_is { wdq qw(-nq t/examples/stackexchange.query) }
     slurp('t/examples/stackexchange.sparql'), 'no-execute';
 
+stderr_is { wdq '-g123' }
+    "invalid language(s): 123\n", "invalid language(s)";
+is $exit, 1;
+
 done_testing;
