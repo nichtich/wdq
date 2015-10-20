@@ -301,21 +301,7 @@ if ( $OPT{export} || $OPT{format} eq 'export' ) {
     $OPT{format} = 'export';
 }
 
-sub simple_node {
-    if ( !blessed( $_[0] ) ) {
-        '';
-    }
-    elsif ( $_[0]->isa('RDF::Trine::Node::Resource') ) {
-        $_[0]->uri_value;
-    }
-    elsif ( $_[0]->isa('RDF::Trine::Node::Literal') ) {
-        $_[0]->literal_value;
-    }
-    else {
-        $_[0]->sse;
-    }
-}
-
+# output formats
 package App::wdq::Format {
 
     sub new {
@@ -334,6 +320,26 @@ package App::wdq::Format {
         ) if $format->{row};
         $format->{post}->($data) if $format->{post};
     }
+}
+
+sub simple_node {
+    if ( !blessed( $_[0] ) ) {
+        '';
+    }
+    elsif ( $_[0]->isa('RDF::Trine::Node::Resource') ) {
+        $_[0]->uri_value;
+    }
+    elsif ( $_[0]->isa('RDF::Trine::Node::Literal') ) {
+        $_[0]->literal_value;
+    }
+    else {
+        $_[0]->sse;
+    }
+}
+
+sub simple_row {
+    my ( $row, $vars ) = @_;
+    return { map { $_ => simple_node( $row->{$_} ) } @$vars };
 }
 
 sub json_string {
@@ -418,27 +424,28 @@ my %FORMATS = (
         pre => sub {
             my $o = shift;
             $o->{count} = 0;
-            print { $o->{out} } "[";
+            print { $o->{out} } "[ ";
         },
         row => sub {
             my ( $o, $row ) = @_;
             my $json = JSON->new->pretty->canonical->encode(
-                { map { $_ => simple_node( $row->{$_} ) } @{ $o->{vars} } } );
+                simple_row( $row, $o->{vars} ) );
             chomp $json;
-            $json =~ s/^/   /mg;
+            $json =~ s/^\s+("[^"]+") : (".*")(,)?$/
+                      '  '.cName($1).': '.cValue($2).$3/mge;
             print { $o->{out} } "," if $o->{count}++;
-            print { $o->{out} } "\n", $json;
+            print { $o->{out} } $json;
         },
         post => sub {
             require JSON;
             my $o = shift;
             if ( $o->{count} ) {
-                say { $o->{out} } "\n]";
+                say { $o->{out} } " ]";
             }
             elsif ( defined $o->{count} ) {
                 say { $o->{out} } "]";
             }
-            else {
+            else {    # FIXME: this should not be called
                 say { $o->{out} } "[]";
             }
         }
@@ -450,8 +457,7 @@ my %FORMATS = (
             my ( $o, $row ) = @_;
             require JSON;
             say { $o->{out} }
-              JSON->new->canonical->encode(
-                { map { $_ => simple_node( $row->{$_} ) } @{ $o->{vars} } } );
+              JSON->new->canonical->encode( simple_row( $row, $o->{vars} ) );
         }
     ),
 
@@ -463,8 +469,7 @@ my %FORMATS = (
         },
         row => sub {
             my ( $o, $row ) = @_;
-            $o->{exporter}->add(
-                { map { $_ => simple_node( $row->{$_} ) } @{ $o->{vars} } } );
+            $o->{exporter}->add( simple_row( $row, $o->{vars} ) );
         },
         post => sub {
             $_[0]->{exporter}->commit;

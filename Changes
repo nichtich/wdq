@@ -1,12 +1,13 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+    - More condense simple output format with color (#10)
 
 0.3.5  2015-10-20 12:25:46 CEST
     - Use MediaWiki API to resolve URLs to Wikidata items
     - New option no-mediawiki to disable MediaWiki API requests
     - Validate option language
-    - SPARQL Query Results JSON format with color (#11)
+    - SPARQL Query Results JSON format with color (#18)
     - refactoring
 
 0.3.4  2015-10-19 16:10:08 CEST

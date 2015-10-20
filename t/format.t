@@ -31,13 +31,11 @@ stdout_is { wdq qw(-q t/examples/query.query -fjson -i) } <<'OUT', 'json';
 OUT
 
 stdout_is { wdq qw(-q t/examples/query.query) } <<OUT, 'simple (default)';
-[
-   {
-      "x" : "http://www.wikidata.org/entity/Q123",
-      "y" : "http://www.example.org/",
-      "z" : "☃\\n"
-   }
-]
+[ {
+  "x": "http://www.wikidata.org/entity/Q123",
+  "y": "http://www.example.org/",
+  "z": "☃\\n"
+} ]
 OUT
 
 stdout_is { wdq qw(-f csv -q t/examples/query.query) } <<OUT, 'csv';
