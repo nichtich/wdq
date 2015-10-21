@@ -42,28 +42,36 @@ GetOptions(
 $OPT{color_stderr} = $OPT{color} // -t STDERR;    ## no critic
 $OPT{color} //= -t STDOUT;                        ## no critic
 
+my %COLORS = (
+    b => "\e[1;39m",                              # bold
+    v => "\e[0;32m",                              # value: green
+    n => "\e[0;34m",                              # name: blue
+    i => "\e[0;33m",                              # identifier: yellow
+    e => "\e[1;31m",                              # error: bold red
+);
+
 sub cDefault {
     $OPT{color} ? "\e[0;39m$_[0]\e[0m" : $_[0]    # default
 }
 
 sub cBold {
-    $OPT{color} ? "\e[1;39m$_[0]\e[0m" : $_[0]    # bold
+    $OPT{color} ? "$COLORS{b}$_[0]\e[0m" : $_[0];
 }
 
 sub cValue {
-    $OPT{color} ? "\e[0;32m$_[0]\e[0m" : $_[0]    # green
+    $OPT{color} ? "$COLORS{v}$_[0]\e[0m" : $_[0];
 }
 
 sub cName {
-    $OPT{color} ? "\e[0;34m$_[0]\e[0m" : $_[0]    # blue
+    $OPT{color} ? "$COLORS{n}$_[0]\e[0m" : $_[0];
 }
 
 sub cIdentifier {
-    $OPT{color} ? "\e[0;33m$_[0]\e[0m" : $_[0]    # yellow
+    $OPT{color} ? "$COLORS{i}$_[0]\e[0m" : $_[0];
 }
 
 sub warning {
-    say STDERR $OPT{color_stderr} ? "\e[1;31m$_[0]\e[0m" : $_[0]    # bold red
+    say STDERR $OPT{color_stderr} ? "$COLORS{e}$_[0]\e[0m" : $_[0];
 }
 
 my %NAMESPACES = (
@@ -475,7 +483,44 @@ my %FORMATS = (
             $_[0]->{exporter}->commit;
         }
     ),
+
+    pretty => App::wdq::Format->new(
+        row => sub {
+            my ( $o, $row ) = @_;
+            my $record = $OPT{pretty};
+
+            # v~ : value
+            # n~ : name
+            # i~ : identifier
+            # b~ : bold
+            # e~ : error
+
+            # 4foo  : up to 4
+            # >4foo : exactely 4, right-aligned
+            # <4foo : exactely 4, left-aligned
+
+            $record =~ s!{([vnbie]~)?(([<>]?)(\d+))?([^}]+)}!
+                my $s = simple_node($row->{$5});
+                if ( $4 ) {
+                    $s = substr($s, 0, $4-1) . "\x{2026}" if length $s > $4;
+                    $s = sprintf($3 eq '<' ? "%-$4s" : "%$4s", $s) if $3;
+                }
+                $s = $COLORS{substr $1,0,1} . $s . "\e[0m" if $1 and $OPT{color};
+                $s;
+            !eg;
+            say { $o->{out} } $record;
+        }
+    ),
 );
+
+if ( $OPT{format} =~ /{[^}]+}/ ) {
+    $OPT{pretty} = $OPT{format};
+    $OPT{format} = 'pretty';
+}
+elsif ( $OPT{format} eq 'pretty' ) {
+    $OPT{pretty} //= '{v~label} ({i~id}): {v~description}';
+    $OPT{ids}    //= 1;
+}
 
 my $format = $FORMATS{ $OPT{format} } // do {
     warning("unknown format: $OPT{format}");
@@ -804,7 +849,7 @@ read from STDIN or as command line arguments to look up label and description.
 
 Query or query file (C<-> for STDIN as default)
 
-=item --format|-f FORMAT
+=item --format|-f FORMAT|TEMPLATE
 
 Output format. Supported formats include C<json>, C<xml>, C<tsv>, and C<csv>
 SPARQL result format, C<simple> for flat JSON without language tags (default),
@@ -813,15 +858,6 @@ pipe to another tool such as L<jq|http://stedolan.github.io/jq/>,
 L<miller|http://johnkerl.org/miller/>, and
 L<catmandu|https://github.com/LibreCat/Catmandu>. If L<Catmandu> is installed,
 its exporters can directly be used with option C<export>.
-
-=item --limit INTEGER
-
-Add or override a LIMIT clause to limitate the number of results. Single-digit
-options such as C<-1> can also be used to also set a limit.
-
-=item --no-header|-H
-
-Exclude header in CSV output or other exporter.
 
 =item --export EXPORTER
 
@@ -832,6 +868,15 @@ Markdown tables (C<Table>). The following produce same output:
   wdq --format ldjson | catmandu convert to Foo
 
 Use Catmandu config file (C<catmandu.yml>) to further configure export.
+
+=item --no-header|-H
+
+Exclude header in CSV output or other exporter.
+
+=item --limit INTEGER
+
+Add or override a LIMIT clause to limitate the number of results. Single-digit
+options such as C<-1> can also be used to also set a limit.
 
 =item --ids|-i
 
