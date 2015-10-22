@@ -1,6 +1,8 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+
+0.3.6  2015-10-22 20:05:48 CEST
     - More condense simple output format with color (#10)
     - New output format pretty based on string templates
     - Extended and reorganized help
