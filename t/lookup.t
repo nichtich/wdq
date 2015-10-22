@@ -14,7 +14,7 @@ SELECT ?id ?idLabel ?idDescription WHERE {
 }
 SPARQL
 
-stdout_is { system("$^X ./bin/wdq lookup -gfr -n < t/examples/lookup") }
+stdout_is { system("$^X script/wdq lookup -gfr -n < t/examples/lookup") }
     $sparql x 8, 'lookup given qid from STDIN';
 
 my @sitelinks = (
@@ -22,16 +22,16 @@ my @sitelinks = (
     "\thttps://de.wikipedia.org/wiki/Erd%C5%91s-Zahl\n",
 );
 
-output_is { system($^X, './bin/wdq', '-N', 'lookup', @sitelinks) }
+output_is { system($^X, 'script/wdq', '-N', 'lookup', @sitelinks) }
     "", "MediaWiki API disabled\n", "--no-mediawiki --no-execute";
 
 SKIP: {
     skip 'release test requiring network', 1 unless $ENV{RELEASE_TESTING};
     
-    output_is { system($^X, './bin/wdq', '-gfr', '-n', @sitelinks) }
+    output_is { system($^X, 'script/wdq', '-gfr', '-n', @sitelinks) }
         $sparql x 2, "", "N: lookup Wikidata id via MediaWiki API";
 
-    my $cmd = "echo $sitelinks[0] | $^X ./bin/wdq -gen lookup -f csv -Hi";
+    my $cmd = "echo $sitelinks[0] | $^X script/wdq -gen lookup -f csv -Hi";
     stdout_like { system($cmd) }
         qr{^Q243972,Erdős}, "N: lookup via MediaWiki API and SPARQL (STDIN)";
 }
@@ -41,7 +41,7 @@ SKIP: {
     $sparql =~ s/"fr"/"es,en-simple"/m;
 
     my $cmd = join ' ', 
-        "$^X ./bin/wdq --language es,en-simple -n",
+        "$^X script/wdq --language es,en-simple -n",
         'http://www.wikidata.org/wiki/Property:P7', 
         'Property:P7', ' P7', 'p7 ';
 

@@ -3,7 +3,7 @@ use Test::More;
 use Test::Output;
 
 my $exit;
-sub wdq { system($^X, './bin/wdq', @_); $exit = $? >> 8 }
+sub wdq { system($^X, 'script/wdq', @_); $exit = $? >> 8 }
 sub slurp { local (@ARGV,$/) = shift; <> }
 
 foreach my $opt (qw(--help -h -?)) {

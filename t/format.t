@@ -3,7 +3,7 @@ use Test::More;
 use Test::Output;
 
 my $exit;
-sub wdq { system($^X, qw(./bin/wdq --response t/examples/response.json), @_) }
+sub wdq { system($^X, qw(script/wdq --response t/examples/response.json), @_) }
 
 stdout_is { wdq qw(-q t/examples/query.query -fjson -i) } <<'OUT', 'json';
 {

@@ -2,7 +2,7 @@ use v5.14;
 use Test::More;
 use Test::Output;
 
-sub wdq { system( $^X, './bin/wdq', '-n', @_ ) }
+sub wdq { system( $^X, 'script/wdq', '-n', @_ ) }
 
 my $sparql = <<SPARQL;
 PREFIX wd: <http://www.wikidata.org/entity/>
