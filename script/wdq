@@ -384,11 +384,18 @@ sub simple_node {
 
 sub simple_row {
     my ( $row, $vars ) = @_;
-    return { map { $_ => simple_node( $row->{$_} ) } @$vars };
+    return {
+        map { $_ => simple_node( $row->{$_} ) }
+        grep { defined $row->{$_} } @$vars
+    };
 }
 
-sub json_string {
-    JSON->new->allow_nonref->encode(shift);
+sub json {
+    ( state $JSON= JSON->new->canonical->allow_nonref )->encode( $_[0] );
+}
+
+sub pretty_json {
+    ( state $JSON= JSON->new->pretty->canonical )->encode( $_[0] );
 }
 
 my %FORMATS = (
@@ -399,7 +406,7 @@ my %FORMATS = (
             my $o = shift;
             print { $o->{out} }
               "{\n  \"head\": {\n    \"vars\": [",
-              join( ", ", map { cName( json_string($_) ) } @{ $o->{vars} } ),
+              join( ", ", map { cName( json($_) ) } @{ $o->{vars} } ),
               "]\n  },\n  \"results\": {\n    \"bindings\": [";
         },
         row => sub {
@@ -407,11 +414,12 @@ my %FORMATS = (
             print { $o->{out} } $o->{count}++ ? ", {\n" : " {\n";
             my $delim = 0;
             foreach my $v ( @{ $o->{vars} } ) {
+                next unless defined $row->{$v};
                 print { $o->{out} } ",\n" if $delim++;
-                print { $o->{out} } "      " . cName( json_string($v) ) . ": ";
+                print { $o->{out} } "      " . cName( json($v) ) . ": ";
                 my $node = $row->{$v}->as_hashref;
                 $node->{'xml:lang'} = delete $node->{lang} if $node->{lang};
-                my $json = JSON->new->pretty->canonical->encode($node);
+                my $json = pretty_json($node);
                 $json =~ s/^ /      /mg;
                 $json =~ s/}\n$/      }/;
                 $json =~
@@ -473,8 +481,7 @@ my %FORMATS = (
         },
         row => sub {
             my ( $o, $row ) = @_;
-            my $json = JSON->new->pretty->canonical->encode(
-                simple_row( $row, $o->{vars} ) );
+            my $json = pretty_json( simple_row( $row, $o->{vars} ) );
             chomp $json;
             $json =~ s/^\s+("[^"]+") : (".*")(,)?$/
                       '  '.cName($1).': '.cValue($2).$3/mge;
@@ -501,8 +508,7 @@ my %FORMATS = (
         row => sub {
             my ( $o, $row ) = @_;
             require JSON;
-            say { $o->{out} }
-              JSON->new->canonical->encode( simple_row( $row, $o->{vars} ) );
+            say { $o->{out} } json( simple_row( $row, $o->{vars} ) );
         }
     ),
 
@@ -554,7 +560,7 @@ my $format = $FORMATS{ $OPT{format} } // do {
     exit 1;
 };
 
-if ( $MODE eq 'lookup' and $format =~ /^(json|xml)$/ ) {
+if ( $MODE eq 'lookup' and $format eq 'xml' ) {
     warning("format $format not supported with method lookup yet!");
     exit 1;
 }
