@@ -2,6 +2,8 @@ Revision history for App-wdq
 
 {{$NEXT}}
     - More condense simple output format with color (#10)
+    - New output format pretty based on string templates
+    - Extended and reorganized help
 
 0.3.5  2015-10-20 12:25:46 CEST
     - Use MediaWiki API to resolve URLs to Wikidata items

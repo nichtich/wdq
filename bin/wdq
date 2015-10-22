@@ -19,7 +19,7 @@ my %OPT;
 Getopt::Long::Configure('bundling');
 GetOptions(
     \%OPT,
-    'help|h|?', 'version|V', 'man', 'ontology', 'prefixes',
+    'help|h|?', 'version|V', 'man', 'ontology',
     'api=s',
     'format|f=s',
     'query|q=s',
@@ -43,7 +43,7 @@ $OPT{color_stderr} = $OPT{color} // -t STDERR;    ## no critic
 $OPT{color} //= -t STDOUT;                        ## no critic
 
 my %COLORS = (
-    b => "\e[1;39m",                              # bold
+    t => "\e[1;39m",                              # title : bold
     v => "\e[0;32m",                              # value: green
     n => "\e[0;34m",                              # name: blue
     i => "\e[0;33m",                              # identifier: yellow
@@ -55,7 +55,7 @@ sub cDefault {
 }
 
 sub cBold {
-    $OPT{color} ? "$COLORS{b}$_[0]\e[0m" : $_[0];
+    $OPT{color} ? "$COLORS{t}$_[0]\e[0m" : $_[0];
 }
 
 sub cValue {
@@ -144,74 +144,111 @@ sub pod_text {
     my $text;
     open my $out, '>', \$text;
     Pod::Usage::pod2usage(
-        -exit   => 'NOEXIT',
-        -output => $out,
-        indent  => 2,
+        -exit    => 'NOEXIT',
+        -output  => $out,
+        -verbose => 99,
+        indent   => 2,
         @_
     );
+    $text =~ s/^(.[^\s].+:)$/cBold($1)/mge;    # headers
     $text;
 }
 
-# execute info mode
-if ( $OPT{version} ) {
-    say "wdq $VERSION";
-    exit;
+# help mode
+if ( $OPT{help} ) {
+    @ARGV = qw(help);
 }
-elsif ( $OPT{help} ) {
-    my $help = pod_text(
-        -msg => cBold("wdq ")
-          . cValue("[query]  ")
-          . cName("[OPTIONS]")
-          . " < query\n"
-          . cBold("wdq ")
-          . cValue(" lookup  ")
-          . cName("[OPTIONS]")
-          . " < ids\n"
-          . cBold("wdq ")
-          . cValue("[lookup] ")
-          . cName("[OPTIONS]")
-          . " ids...\n",
-        -sections => [qw(USAGE OPTIONS)],
-    );
-    $help =~ s/\n\n  --/\n  --/gm;
-    $help =~ s/^      /    /mg;
-    if ( $OPT{color} ) {
-        $help =~ s/^([a-z]+:)/cBold($1)/mgei;          # headers
-        $help =~ s/^(  --.*)$/cName($1)/mge;           # options
-        $help =~ s/("[^"\n]+")/cValue($1)/mge;         # strings
-        $help =~ s/(<[^>\n]+>)/cIdentifier($1)/mge;    # URLs
+elsif ( $OPT{version} ) {
+    @ARGV = qw(help version);
+}
+elsif ( $OPT{namespaces} ) {
+    warning("--namespaces is deprecated. Use 'wdq help namespaces' instead!");
+    @ARGV = qw(help namespaces);
+}
+elsif ( $OPT{ontology} ) {
+    warning("--ontology is deprecated. Use 'wdq help ontology' instead!");
+    @ARGV = qw(help ontology);
+}
+
+if ( @ARGV and $ARGV[0] eq 'help' ) {
+    shift @ARGV;
+    my $topic = lc( shift @ARGV );
+
+    if ( $topic eq 'version' ) {
+        say "wdq $VERSION";
     }
-    print $help;
+    elsif ( $topic =~ /^(namespace|prefix)/ ) {
+        for my $prefix ( sort keys %NAMESPACES ) {
+            printf "%8s: %s\n", $prefix, $NAMESPACES{$prefix};
+        }
+    }
+    elsif ( $topic eq 'output' ) {
+        print pod_text( -sections => ['OUTPUT'] );
+    }
+    elsif ( $topic =~ /^(formats?)$/ ) {
+        print pod_text( -sections => ['OUTPUT/Formats'] );
+    }
+    elsif ( $topic eq 'pretty' ) {
+        my $help = pod_text( -sections => ['OUTPUT/Pretty'] );
+        $help =~ s/({(.)~.+})/$COLORS{$2}.$1."\e[0m"/mge;
+        print $help;
+    }
+    elsif ( $topic eq 'export' ) {
+        print pod_text( -sections => ['OUTPUT/Export'] );
+    }
+    elsif ( $topic eq 'ontology' ) {
+        my $help = pod_text( -sections => ['WIKIDATA ONTOLOGY'] );
+        $help =~ s/^.*Wikidata Ontology:.*\n//;
+        $help =~ s/^(    |  )//mg;
+        $help =~ s/^([a-z]+)/cBold($1)/mgei;
+        $help =~ s/ ([A-Z][A-Za-z]+)/" ".cBold($1)/mge;
+        $help =~ s/(<--|-->|--)/cDefault($1)/mge;
+        $help =~ s/ ([a-z]+:([a-zA-Z_]+)?|[a-z][a-zA-Z]+)/" ".cName($1)/mge;
+        $help =~ s/(<[^ >]+>|@[a-z_]+)/cIdentifier($1)/mge;
+        $help =~ s/("[^"\n]+")/cValue($1)/mge;
+        print $help;
+    }
+    else {
+        # TODO: use pretty string template instead
+        my $help = pod_text(
+            -msg => cBold("wdq ")
+              . cValue("[query]  ")
+              . cName("[OPTIONS]")
+              . " < query\n"
+              . cBold("wdq ")
+              . cValue(" lookup  ")
+              . cName("[OPTIONS]")
+              . " < ids\n"
+              . cBold("wdq ")
+              . cValue("[lookup] ")
+              . cName("[OPTIONS]")
+              . " ids...\n"
+              . cBold("wdq ")
+              . cValue("help ")
+              . cValue("[format|output|ontology|prefixes|pretty|export]")
+              . "\n",
+            -sections => [qw(USAGE OPTIONS)],
+        );
+        $help =~ s/\n\n  -/\n  -/gm;
+        $help =~ s/^      /    /mg;
+        if ( $OPT{color} ) {
+            $help =~ s/^([a-z]+:)/cBold($1)/mgei;          # headers
+            $help =~ s/^(  --?.*)$/cName($1)/mge;          # options
+            $help =~ s/("[^"\n]+")/cValue($1)/mge;         # strings
+            $help =~ s/(<[^>\n]+>)/cIdentifier($1)/mge;    # URLs
+        }
+        chomp $help;
+        print $help;
+    }
     exit;
 }
-elsif ( $OPT{man} ) {
+
+if ( $OPT{man} ) {
     my $module = $OPT{color} ? 'Pod::Text::Color' : 'Pod::Text';
 
     # may fail if pure script installed by hand
-    eval "require $module; require App::wdq";          ## no critic
+    eval "require $module; require App::wdq";              ## no critic
     $module->new->parse_from_file( $INC{'App/wdq.pm'} // $0 );
-    exit;
-}
-elsif ( $OPT{namespaces} ) {
-    for my $prefix ( sort keys %NAMESPACES ) {
-        printf "%8s: %s\n", $prefix, $NAMESPACES{$prefix};
-    }
-    exit;
-}
-elsif ( $OPT{ontology} ) {
-    my $help = pod_text(
-        -sections => ['WIKIDATA ONTOLOGY'],
-        -verbose  => 99,
-    );
-    $help =~ s/^Wikidata Ontology:\n//;
-    $help =~ s/^(    |  )//mg;
-    $help =~ s/^([a-z]+)/cBold($1)/mgei;
-    $help =~ s/ ([A-Z][A-Za-z]+)/" ".cBold($1)/mge;
-    $help =~ s/(<--|-->|--)/cDefault($1)/mge;
-    $help =~ s/ ([a-z]+:([a-zA-Z_]+)?|[a-z][a-zA-Z]+)/" ".cName($1)/mge;
-    $help =~ s/(<[^ >]+>|@[a-z_]+)/cIdentifier($1)/mge;
-    $help =~ s/("[^"\n]+")/cValue($1)/mge;
-    print $help;
     exit;
 }
 
@@ -489,17 +526,7 @@ my %FORMATS = (
             my ( $o, $row ) = @_;
             my $record = $OPT{pretty};
 
-            # v~ : value
-            # n~ : name
-            # i~ : identifier
-            # b~ : bold
-            # e~ : error
-
-            # 4foo  : up to 4
-            # >4foo : exactely 4, right-aligned
-            # <4foo : exactely 4, left-aligned
-
-            $record =~ s!{([vnbie]~)?(([<>]?)(\d+))?([^}]+)}!
+            $record =~ s!{([tvnie]~)?(([<>]?)(\d+))?([^}]+)}!
                 my $s = simple_node($row->{$5});
                 if ( $4 ) {
                     $s = substr($s, 0, $4-1) . "\x{2026}" if length $s > $4;
@@ -851,23 +878,11 @@ Query or query file (C<-> for STDIN as default)
 
 =item --format|-f FORMAT|TEMPLATE
 
-Output format. Supported formats include C<json>, C<xml>, C<tsv>, and C<csv>
-SPARQL result format, C<simple> for flat JSON without language tags (default),
-and C<ldjson> for line delimited flat json. For more flexible output options
-pipe to another tool such as L<jq|http://stedolan.github.io/jq/>,
-L<miller|http://johnkerl.org/miller/>, and
-L<catmandu|https://github.com/LibreCat/Catmandu>. If L<Catmandu> is installed,
-its exporters can directly be used with option C<export>.
+Output format or string template. Call C<wdq help formats> for details.
 
 =item --export EXPORTER
 
-Use a L<Catmandu> exporter as output format, for instance C<XLS> (Excel) and
-Markdown tables (C<Table>). The following produce same output:
-
-  wdq --export Foo
-  wdq --format ldjson | catmandu convert to Foo
-
-Use Catmandu config file (C<catmandu.yml>) to further configure export.
+Use a L<Catmandu> exporter as output format.
 
 =item --no-header|-H
 
@@ -922,10 +937,6 @@ Show usage help
 
 Show information about the Wikidata Ontology
 
-=item --prefixes
-
-Show the default prefixes
-
 =item --no-default-prefixes
 
 Don't add default namespace prefixes to the SPARQL query
@@ -939,6 +950,84 @@ Show detailled manual
 Show version if this script
 
 =back
+
+=head1 OUTPUT
+
+Output can be controlled with options C<--format>, C<--export>,
+C<--header/--no-header>, and C<--color/--no-color>.
+
+=head2 Formats
+
+Option C<--format> (or C<-f>) sets an output format or string template:
+
+=over
+
+=item C<simple> (default)
+
+Flat JSON without language tags (default)
+
+=item C<ldjson>
+
+Line delimited Flat JSON
+
+=item C<csv>
+
+SPARQL Query Results CSV Format. Suppress header with option C<--no-header> or
+C<-H>.  Use Catmandu CSV exporter for more options
+
+=item C<tsv>
+
+SPARQL Query Results TSV Format
+
+=item C<xml> 
+
+SPARQL Query Results XML Format
+
+=item C<json>
+
+SPARQL Query Results JSON Format
+
+=item C<pretty>
+
+Default string template to print C<label>, C<id>, and C<description>.  Also
+sets option C<--ids> unless disabled
+
+=item C<...>
+
+String template.  Call C<wdq help pretty> for details
+
+=back
+
+=head2 Pretty
+
+Option C<--format> can be set to a string template with bracket expressions
+(for instance C<{id}> is replaced by the value of variable C<id>). The variable
+name can be preceded by a color code and a length:
+
+  {n~foo} : highlight value of foo like a name
+  {v~foo} : highlight value of foo like a value
+  {i~foo} : highlight value of foo like an identifier
+  {t~foo} : highlight value of foo like a title
+  {e~foo} : highlight value of foo like an error
+
+  {4foo}  : cut value of foo to 4 characters or less
+  {>4foo} : cut/fill value of foo to 4 characters, right-aligned
+  {<4foo} : cut/fill value of foo to 4 characters, left-aligned
+
+  {v~<8foo} : set both, color and length
+
+=head2 Export
+
+Option C<--export> sets a L<Catmandu> exporter to create output with.  Given
+the corresponding exporter modules installed, one can write results as C<YAML>,
+Excel (C<XLS>), and Markdown table (C<Table>) among other formats:
+
+  wdq --export YAML                               # short form
+  wdq --format ldjson | catmandu convert to YAML  # equivalent
+
+Use Catmandu config file (C<catmandu.yml>) to further configure export.  See
+also tools such as L<jq|http://stedolan.github.io/jq/> and
+L<miller|http://johnkerl.org/miller/> for processing results.
 
 =head1 WIKIDATA ONTOLOGY
 
