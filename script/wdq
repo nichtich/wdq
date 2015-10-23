@@ -2,7 +2,6 @@
 use v5.14;
 
 use Getopt::Long;
-use HTTP::Tiny;
 use Scalar::Util qw(blessed);
 use Encode qw(decode_utf8 encode_utf8);
 use JSON;
@@ -436,6 +435,20 @@ sub pretty_json {
     ( state $JSON= JSON->new->pretty->canonical )->encode( $_[0] );
 }
 
+sub xml {
+    my $text = shift;
+    $text =~ s/&/&amp;/gm;
+    $text =~ s/</&lt;/gm;
+    $text =~ s/>/&gt;/gm;
+    $text;
+}
+
+sub xmlattr {
+    my $text = xml(shift);
+    $text =~ s/"/&quot;/gm;
+    $text;
+}
+
 my %FORMATS = (
 
     # SPARQL Query Results JSON
@@ -473,7 +486,63 @@ my %FORMATS = (
     ),
 
     # SPARQL Query Results XML
-    xml => 'xml',
+    xml => App::wdq::Format->new(
+        pre => sub {
+            my $o = shift;
+            $o->say('<?xml version="1.0"?>');
+            $o->say('<sparql xmlns="http://www.w3.org/2005/sparql-results#">');
+            $o->say('  <head>');
+            foreach ( @{ $o->{vars} } ) {
+                my $name = cName( xmlattr($_) );
+                $o->say("    <variable name=\"$name\"/>");
+            }
+            $o->say('  </head>');
+            $o->say('  <results>');
+        },
+        row => sub {
+            my ( $o, $row ) = @_;
+            $o->say('    <result>');
+            foreach ( @{ $o->{vars} } ) {
+                my $node = $row->{$_} // next;
+                my $name = cName( xmlattr($_) );
+                $o->say("      <binding name=\"$name\">");
+                if ( $node->is_blank ) {
+                    $o->say(
+                        "        <bnode>" . xml( $node->value ) . '</node>' );
+                }
+                elsif ( $node->is_resource ) {
+                    $o->say("        <uri>"
+                          . cIdentifier( xml( $node->uri_value ) )
+                          . '</uri>' );
+                }
+                else {
+                    my $literal = "        <literal";
+                    if ( $node->literal_value_language ) {
+                        $literal .=
+                          ' xml:lang="'
+                          . cIdentifier(
+                            xmlattr( $node->literal_value_language ) )
+                          . '"';
+                    }
+                    elsif ( $node->literal_datatype ) {
+                        $literal .=
+                            ' datatype="'
+                          . cIdentifier( xmlattr( $node->literal_datatype ) )
+                          . '"';
+                    }
+                    $o->say("$literal>"
+                          . cValue( xml( $node->literal_value ) )
+                          . "</literal>" );
+                }
+                $o->say('      </binding>');
+            }
+            $o->say('    </result>');
+        },
+        post => sub {
+            $_[0]->say('  </results>');
+            $_[0]->say('</sparql>');
+        }
+    ),
 
     # SPARQL TSV
     tsv => App::wdq::Format->new(
@@ -599,11 +668,6 @@ my $format = $FORMATS{ $OPT{format} } // do {
     exit 1;
 };
 
-if ( $MODE eq 'lookup' and $format eq 'xml' ) {
-    warning("format $format not supported with method lookup yet!");
-    exit 1;
-}
-
 sub expand_query {
     my $query = shift;
 
@@ -628,16 +692,33 @@ sub expand_query {
 }
 
 sub http_get {
-    my ( $base, @query ) = @_;
+    require HTTP::Tiny;
+    state $http =
+      HTTP::Tiny->new( default_headers => { agent => "wdq/$VERSION" } );
 
-    state $http = HTTP::Tiny->new(
-        default_headers => {
-            agent => "wdq/$VERSION",
+    if ( $OPT{response} ) {
+        local ( @ARGV, $/ ) = $OPT{response};
+        return <>;
+    }
+
+    my ( $url, %query ) = @_;
+    $query{format} = 'json';
+
+    $url .= '?' . $http->www_form_urlencode( \%query );
+    my $res = $http->get($url);
+
+    if ( !$res->{success} ) {
+        if ( $OPT{ignore} ) {
+            return;
         }
-    );
+        else {
+            warning("HTTP request failed");
+            say STDERR $res->{content};
+            exit 1;
+        }
+    }
 
-    my $url = "$base?" . $http->www_form_urlencode( \@query );
-    $http->get($url);
+    $res->{content};
 }
 
 sub get_qid_from_sitelink {
@@ -649,12 +730,10 @@ sub get_qid_from_sitelink {
         action    => 'query',
         prop      => 'pageprops',
         titles    => $title,
-        format    => 'json',
         redirects => 1
     );
-    return unless $res->{success};
 
-    my $data = JSON->new->decode( $res->{content} );
+    my $data = JSON->new->decode($res);
     my ($page) = values %{ $data->{query}->{pages} };
     return unless $page->{pageprops};
     return $page->{pageprops}->{wikibase_item};
@@ -708,26 +787,28 @@ SELECT ?id ?idLabel ?idDescription WHERE {
 SPARQL
 }
 
+sub map_ids {
+    my $row = shift;
+    foreach my $name ( keys %$row ) {
+        my $v = $row->{$name};
+        next unless $v->isa('RDF::Trine::Node::Resource');
+        my $id;
+        $id = $+{id} if $v->uri_value =~ $ENTITY_PATTERN;
+        $id = $+{id} if $v->uri_value =~ $WIKIDATA_ID_PATTERN;
+        $row->{$name} = RDF::Trine::Node::Literal->new($id) if $id;
+    }
+    $row;
+}
+
 sub parse_response {
     my ( $json, @map ) = @_;
 
     require RDF::Trine::Iterator::JSONHandler;
+    return RDF::Trine::Iterator->new( [], 'bindings', [] ) unless $json;
+
     my $iter = RDF::Trine::Iterator::JSONHandler->new->parse($json);
 
-    unshift @map, sub {
-        my $r = $_;
-        foreach my $name ( keys %$r ) {
-            my $v = $r->{$name};
-            next unless $v->isa('RDF::Trine::Node::Resource');
-            my $id;
-            $id = $+{id} if $v->uri_value =~ $ENTITY_PATTERN;
-            $id = $+{id} if $v->uri_value =~ $WIKIDATA_ID_PATTERN;
-            $r->{$name} = RDF::Trine::Node::Literal->new($id) if $id;
-        }
-        $r;
-      }
-      if $OPT{ids};
-
+    unshift @map, \&map_ids if $OPT{ids};
     $iter = RDF::Trine::Iterator::smap( $_, $iter ) for @map;
 
     $iter;
@@ -742,9 +823,7 @@ if ( $MODE eq 'lookup' ) {
         $_;
     };
 
-    my $output = $format->start( [qw(id label description)], \*STDOUT )
-      unless $OPT{'no-execute'};
-    my $error = 0;
+    my $output;
 
     my $lookup = sub {
         my $id = shift;
@@ -755,17 +834,20 @@ if ( $MODE eq 'lookup' ) {
         $query = RDF::Query->new( expand_query($query) )->as_sparql;
         if ( $OPT{'no-execute'} ) {
             say $query;
+            return;
         }
-        else {
-            my $res = http_get( $OPT{api}, query => $query, format => 'json' );
-            if ( $res->{success} ) {
-                my $iter = parse_response( $res->{content}, $varmap );
-                $output->add($_) for $iter->get_all;
-            }
-            elsif ( !$OPT{ignore} ) {
-                warning("not found: $id");
-                $error = 1;
-            }
+
+        my $res = http_get( $OPT{api}, query => $query );
+        my $iterator = parse_response($res);
+
+        $iterator = RDF::Trine::Iterator::smap( $varmap,   $iterator );
+        $iterator = RDF::Trine::Iterator::smap( \&map_ids, $iterator )
+          if $OPT{ids};
+
+        $output //= $format->start( [qw(id label description)], \*STDOUT );
+
+        while ( my $row = $iterator->next ) {
+            $output->add($row);
         }
     };
 
@@ -785,7 +867,7 @@ if ( $MODE eq 'lookup' ) {
 
     $output->end() if $output;
 
-    exit $error;
+    exit;
 }
 
 sub perform_search {
@@ -804,11 +886,8 @@ sub perform_search {
         uselang  => $OPT{language},       # TODO: what if multiple?
         type     => 'item',
         search   => $query,
-        format   => 'json',
     );
-    exit 1 unless $res->{success};
-
-    my $data = JSON->new->decode( $res->{content} );
+    my $data = JSON->new->decode($res);
 
     $data = [
         map {
@@ -832,25 +911,25 @@ sub perform_search {
     return $data;
 }
 
-if ( $MODE eq 'search' ) {
-    my $query = join ' ', @ARGV;
-    my $data = perform_search($query);
-    unless (@$data) {
-        exit if $OPT{ignore};
-        warning("not found: $query");
-        exit 1;
-    }
-    $format->emit( $data, [qw(id label description)], \*STDOUT );
-    exit;
+my ( $variables, $iterator, $query );
 
-    # TODO: respect $OPT{limit}, $OPT{ids}, $OPT{'no-execute'}, $OPT{response}
+if ( $MODE eq 'search' ) {
+    $query = join ' ', @ARGV;
+
+    # TODO: respect $OPT{limit}, $OPT{'no-execute'}, $OPT{response}
+    my $data = perform_search($query);
+
+    require RDF::Trine::Iterator::Bindings;
+    $variables = [qw(id label description)];
+    $iterator = RDF::Trine::Iterator::Bindings->new( $data, $variables );
 }
 
 # query mode
-my ( $query, $sparql, $variables );
 if ( $MODE eq 'query' ) {
     $OPT{query} //= shift @ARGV if @ARGV;
     $OPT{query} //= '-';
+
+    my ( $query, $sparql );
 
     local $/ = undef;
     if ( $OPT{query} eq '-' ) {
@@ -880,58 +959,30 @@ if ( $MODE eq 'query' ) {
             }
         }
     };
-}
 
-if ($sparql) {
-    $variables = [ map { $_->name } @{ $sparql->parsed->{variables} } ];
-    $query = $sparql->as_sparql;
-}
-
-# LIMIT and OFFSET are always last so we can safely use regexp here
-if ( $OPT{limit} ) {
-    $query =~ s/\n*LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/$1/sm;
-    $query .= "\nLIMIT $OPT{limit}";
-}
-
-if ( $OPT{'no-execute'} ) {
-    chomp $query;
-    say $query;
-    exit;
-}
-
-my $res = do {
-    if ( $OPT{response} ) {
-        {
-            content => do { local ( @ARGV, $/ ) = $OPT{response}; <> },
-            success => 1,
-        };
+    if ($sparql) {
+        $variables = [ map { $_->name } @{ $sparql->parsed->{variables} } ];
+        $query = $sparql->as_sparql;
+        $query =~ s/\n$//mg;
+        $query =~ s/\t/    /mg;
     }
-    else {
-        http_get(
-            $OPT{api},
-            query  => $query,
-            format => $format eq 'xml' ? $format : 'json'
-        );
-    }
-};
 
-if ( !$res->{success} ) {
-    say STDERR $res->{content};
-    exit 1;
-}
-
-if ( $format eq 'xml' ) {
-    if ( $OPT{ids} ) {
-        warning("option ids not supported for format xml yet!");
+    # LIMIT and OFFSET are always last so we can safely use regexp here
+    if ( $OPT{limit} ) {
+        $query =~ s/\n*LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/$1/sm;
+        $query .= "\nLIMIT $OPT{limit}";
     }
-    else {
-        say $res->{content};
+
+    if ( $OPT{'no-execute'} ) {
+        say $query;
         exit;
     }
+
+    my $res = http_get( $OPT{api}, query => $query );
+    $iterator = parse_response($res);
 }
 
-# convert SPARQL JSON response
-my $iterator = parse_response( $res->{content} );
+$iterator = RDF::Trine::Iterator::smap( \&map_ids, $iterator ) if $OPT{ids};
 
 # print result
 if ( $OPT{ignore} || $iterator->peek ) {
@@ -941,7 +992,7 @@ if ( $OPT{ignore} || $iterator->peek ) {
     $format->emit( [ $iterator->get_all ], $vars, \*STDOUT );
 }
 else {
-    warning("not found");
+    warning( $query ? "not found: $query" : "not found" );
     exit 1;
 }
 
@@ -998,7 +1049,7 @@ options such as C<-1> can also be used to also set a limit.
 
 =item --ids|-i
 
-Abbreviate Wikidata identifier URIs as strings (except output format C<xml>).
+Abbreviate Wikidata identifier URIs as strings.
 
 =item --language|-g
 

@@ -2,6 +2,7 @@ Revision history for App-wdq
 
 {{$NEXT}}
     - Implemented search mode
+    - Added colorized XML output format
     - Refactoring
 
 0.3.6  2015-10-22 20:05:48 CEST
