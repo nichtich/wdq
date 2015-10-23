@@ -436,6 +436,20 @@ sub pretty_json {
     ( state $JSON= JSON->new->pretty->canonical )->encode( $_[0] );
 }
 
+sub xml {
+    my $text = shift;
+    $text =~ s/&/&amp;/gm;
+    $text =~ s/</&lt;/gm;
+    $text =~ s/>/&gt;/gm;
+    $text;
+}
+
+sub xmlattr {
+    my $text = xml(shift);
+    $text =~ s/"/&quot;/gm;
+    $text;
+}
+
 my %FORMATS = (
 
     # SPARQL Query Results JSON
@@ -473,7 +487,63 @@ my %FORMATS = (
     ),
 
     # SPARQL Query Results XML
-    xml => 'xml',
+    xml => App::wdq::Format->new(
+        pre => sub {
+            my $o = shift;
+            $o->say('<?xml version="1.0"?>');
+            $o->say('<sparql xmlns="http://www.w3.org/2005/sparql-results#">');
+            $o->say('  <head>');
+            foreach ( @{ $o->{vars} } ) {
+                my $name = cName( xmlattr($_) );
+                $o->say("    <variable name=\"$name\"/>");
+            }
+            $o->say('  </head>');
+            $o->say('  <results>');
+        },
+        row => sub {
+            my ( $o, $row ) = @_;
+            $o->say('    <result>');
+            foreach ( @{ $o->{vars} } ) {
+                my $node = $row->{$_} // next;
+                my $name = cName( xmlattr($_) );
+                $o->say("      <binding name=\"$name\">");
+                if ( $node->is_blank ) {
+                    $o->say(
+                        "        <bnode>" . xml( $node->value ) . '</node>' );
+                }
+                elsif ( $node->is_resource ) {
+                    $o->say("        <uri>"
+                          . cIdentifier( xml( $node->uri_value ) )
+                          . '</uri>' );
+                }
+                else {
+                    my $literal = "        <literal";
+                    if ( $node->literal_value_language ) {
+                        $literal .=
+                          ' xml:lang="'
+                          . cIdentifier(
+                            xmlattr( $node->literal_value_language ) )
+                          . '"';
+                    }
+                    elsif ( $node->literal_datatype ) {
+                        $literal .=
+                            ' datatype="'
+                          . cIdentifier( xmlattr( $node->literal_datatype ) )
+                          . '"';
+                    }
+                    $o->say("$literal>"
+                          . cValue( xml( $node->literal_value ) )
+                          . "</literal>" );
+                }
+                $o->say('      </binding>');
+            }
+            $o->say('    </result>');
+        },
+        post => sub {
+            $_[0]->say('  </results>');
+            $_[0]->say('</sparql>');
+        }
+    ),
 
     # SPARQL TSV
     tsv => App::wdq::Format->new(
@@ -599,11 +669,6 @@ my $format = $FORMATS{ $OPT{format} } // do {
     exit 1;
 };
 
-if ( $MODE eq 'lookup' and $format eq 'xml' ) {
-    warning("format $format not supported with method lookup yet!");
-    exit 1;
-}
-
 sub expand_query {
     my $query = shift;
 
@@ -628,7 +693,8 @@ sub expand_query {
 }
 
 sub http_get {
-    my ( $base, @query ) = @_;
+    my ( $base, %query ) = @_;
+    $query{format} = 'json';
 
     state $http = HTTP::Tiny->new(
         default_headers => {
@@ -636,7 +702,7 @@ sub http_get {
         }
     );
 
-    my $url = "$base?" . $http->www_form_urlencode( \@query );
+    my $url = "$base?" . $http->www_form_urlencode( \%query );
     $http->get($url);
 }
 
@@ -649,7 +715,6 @@ sub get_qid_from_sitelink {
         action    => 'query',
         prop      => 'pageprops',
         titles    => $title,
-        format    => 'json',
         redirects => 1
     );
     return unless $res->{success};
@@ -714,6 +779,7 @@ sub parse_response {
     require RDF::Trine::Iterator::JSONHandler;
     my $iter = RDF::Trine::Iterator::JSONHandler->new->parse($json);
 
+    # TODO: also for search and lookup mode
     unshift @map, sub {
         my $r = $_;
         foreach my $name ( keys %$r ) {
@@ -757,7 +823,7 @@ if ( $MODE eq 'lookup' ) {
             say $query;
         }
         else {
-            my $res = http_get( $OPT{api}, query => $query, format => 'json' );
+            my $res = http_get( $OPT{api}, query => $query );
             if ( $res->{success} ) {
                 my $iter = parse_response( $res->{content}, $varmap );
                 $output->add($_) for $iter->get_all;
@@ -804,7 +870,6 @@ sub perform_search {
         uselang  => $OPT{language},       # TODO: what if multiple?
         type     => 'item',
         search   => $query,
-        format   => 'json',
     );
     exit 1 unless $res->{success};
 
@@ -907,27 +972,13 @@ my $res = do {
         };
     }
     else {
-        http_get(
-            $OPT{api},
-            query  => $query,
-            format => $format eq 'xml' ? $format : 'json'
-        );
+        http_get( $OPT{api}, query => $query );
     }
 };
 
 if ( !$res->{success} ) {
     say STDERR $res->{content};
     exit 1;
-}
-
-if ( $format eq 'xml' ) {
-    if ( $OPT{ids} ) {
-        warning("option ids not supported for format xml yet!");
-    }
-    else {
-        say $res->{content};
-        exit;
-    }
 }
 
 # convert SPARQL JSON response
@@ -998,7 +1049,7 @@ options such as C<-1> can also be used to also set a limit.
 
 =item --ids|-i
 
-Abbreviate Wikidata identifier URIs as strings (except output format C<xml>).
+Abbreviate Wikidata identifier URIs as strings.
 
 =item --language|-g
 
