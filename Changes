@@ -1,6 +1,8 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+    - Implemented search mode
+    - Refactoring
 
 0.3.6  2015-10-22 20:05:48 CEST
     - More condense simple output format with color (#10)

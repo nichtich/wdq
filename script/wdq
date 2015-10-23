@@ -5,6 +5,7 @@ use Getopt::Long;
 use HTTP::Tiny;
 use Scalar::Util qw(blessed);
 use Encode qw(decode_utf8 encode_utf8);
+use JSON;
 
 our $VERSION = '0.3.6';
 
@@ -258,9 +259,6 @@ $OPT{api} //= 'https://query.wikidata.org/bigdata/namespace/wdq/sparql';
 # default output format
 $OPT{format} = lc( $OPT{format} // 'simple' );
 
-# read query from STDIN by default
-$OPT{query} //= '-';
-
 # add default prefixes by default
 $OPT{'default-prefixes'} //= 1;
 
@@ -289,11 +287,24 @@ if ( $OPT{N} ) {
 my $MODE = !@ARGV ? 'query' : do {
     my $arg = $ARGV[0];
     $arg =~ s/^\s*|\s*$//g;
-    if ( $arg =~ /^(query|lookup)$/ ) {
+    if ( $arg =~ /^(query|lookup|search)$/ ) {
         shift @ARGV;
     }
     elsif ( $arg =~ $ENTITY_PATTERN or $arg =~ $SITELINK_PATTERN ) {
         'lookup';
+    }
+    else {
+        my $guess = () = $arg =~ /[a-z]+:[^\s]/gi;
+        $guess += () = $arg =~ /<[^>]+>/g;
+        $guess += () = $arg =~ /[?\$][^\s]/g;
+        if ( $guess > 2 ) {
+            warning("ignoring additional command line argument")
+              if $OPT{query} or @ARGV > 1;
+            'query';
+        }
+        else {
+            'search';
+        }
     }
 };
 
@@ -347,6 +358,30 @@ if ( $OPT{export} || $OPT{format} eq 'export' ) {
 }
 
 # output formats
+package App::wdq::Output {
+
+    sub add {
+        my ( $self, $row ) = @_;
+        $self->{format}{row}->( $self, $row );
+    }
+
+    sub end {
+        my ($self) = @_;
+        return unless $self->{format}{post};
+        $self->{format}{post}->($self);
+    }
+
+    sub print {
+        my $self = shift;
+        print { $self->{out} } @_;
+    }
+
+    sub say {
+        my $self = shift;
+        say { $self->{out} } @_;
+    }
+}
+
 package App::wdq::Format {
 
     sub new {
@@ -355,15 +390,18 @@ package App::wdq::Format {
     }
 
     sub emit {
-        my ( $format, $iterator, $vars, $out ) = @_;
-        my $data = { out => $out, vars => $vars };
-        $format->{pre}->($data) if $format->{pre};
-        $iterator->each(
-            sub {
-                $format->{row}->( $data, $_[0] );
-            }
-        ) if $format->{row};
-        $format->{post}->($data) if $format->{post};
+        my ( $self, $rows, $vars, $out ) = @_;
+        my $output = $self->start( $vars, $out );
+        $output->add($_) for @$rows;
+        $output->end();
+    }
+
+    sub start {
+        my ( $self, $vars, $out ) = @_;
+        my $output = bless { format => $self, vars => $vars, out => $out },
+          'App::wdq::Output';
+        $self->{pre}->($output) if $self->{pre};
+        return $output;
     }
 }
 
@@ -404,19 +442,20 @@ my %FORMATS = (
     json => App::wdq::Format->new(
         pre => sub {
             my $o = shift;
-            print { $o->{out} }
-              "{\n  \"head\": {\n    \"vars\": [",
-              join( ", ", map { cName( json($_) ) } @{ $o->{vars} } ),
-              "]\n  },\n  \"results\": {\n    \"bindings\": [";
+            $o->print(
+                "{\n  \"head\": {\n    \"vars\": [",
+                join( ", ", map { cName( json($_) ) } @{ $o->{vars} } ),
+                "]\n  },\n  \"results\": {\n    \"bindings\": ["
+            );
         },
         row => sub {
             my ( $o, $row ) = @_;
-            print { $o->{out} } $o->{count}++ ? ", {\n" : " {\n";
+            $o->print( $o->{count}++ ? ", {\n" : " {\n" );
             my $delim = 0;
             foreach my $v ( @{ $o->{vars} } ) {
                 next unless defined $row->{$v};
-                print { $o->{out} } ",\n" if $delim++;
-                print { $o->{out} } "      " . cName( json($v) ) . ": ";
+                $o->say(",") if $delim++;
+                $o->print( "      " . cName( json($v) ) . ": " );
                 my $node = $row->{$v}->as_hashref;
                 $node->{'xml:lang'} = delete $node->{lang} if $node->{lang};
                 my $json = pretty_json($node);
@@ -424,13 +463,12 @@ my %FORMATS = (
                 $json =~ s/}\n$/      }/;
                 $json =~
                   s/^(\s+"[a-z:]+")\s*:(.*")(,)?$/"$1:".cValue($2).$3/mge;
-                print { $o->{out} } "$json";
+                $o->print($json);
             }
-            print { $o->{out} } "\n    }";
+            $o->print("\n    }");
         },
         post => sub {
-            my $o = shift;
-            print { $o->{out} } " ]\n  }\n}\n";
+            $_[0]->print(" ]\n  }\n}\n");
         }
     ),
 
@@ -441,13 +479,15 @@ my %FORMATS = (
     tsv => App::wdq::Format->new(
         pre => sub {
             my $o = shift;
-            say { $o->{out} } join( "\t", map { "?$_" } @{ $o->{vars} } );
+            $o->say( join( "\t", map { "?$_" } @{ $o->{vars} } ) );
         },
         row => sub {
             my ( $o, $row ) = @_;
-            say { $o->{out} } join "\t",
-              map { blessed($_) ? $_->as_ntriples : '' }
-              map { $row->{$_} } @{ $o->{vars} };
+            $o->say(
+                join "\t",
+                map { blessed($_) ? $_->as_ntriples : '' }
+                  map { $row->{$_} } @{ $o->{vars} }
+            );
         }
     ),
 
@@ -455,20 +495,22 @@ my %FORMATS = (
     csv => App::wdq::Format->new(
         pre => sub {
             my $o = shift;
-            say { $o->{out} } join cDefault(','),
-              map { cName($_) } @{ $o->{vars} }
+            $o->say( join cDefault(','), map { cName($_) } @{ $o->{vars} } )
               if $OPT{header};
         },
         row => sub {
             my ( $o, $row ) = @_;
-            say { $o->{out} } join cDefault(','), map {
-                my $s = simple_node( $row->{$_} );
-                if ( $s =~ /[",\x0A\x0D]/ ) {
-                    $s =~ s/"/""/g;
-                    $s = "\"$s\"";
-                }
-                cValue($s)
-            } @{ $o->{vars} };
+            $o->say(
+                join cDefault(','),
+                map {
+                    my $s = simple_node( $row->{$_} );
+                    if ( $s =~ /[",\x0A\x0D]/ ) {
+                        $s =~ s/"/""/g;
+                        $s = "\"$s\"";
+                    }
+                    cValue($s)
+                } @{ $o->{vars} }
+            );
         }
     ),
 
@@ -477,7 +519,7 @@ my %FORMATS = (
         pre => sub {
             my $o = shift;
             $o->{count} = 0;
-            print { $o->{out} } "[ ";
+            $o->print("[ ");
         },
         row => sub {
             my ( $o, $row ) = @_;
@@ -485,20 +527,19 @@ my %FORMATS = (
             chomp $json;
             $json =~ s/^\s+("[^"]+") : (".*")(,)?$/
                       '  '.cName($1).': '.cValue($2).$3/mge;
-            print { $o->{out} } "," if $o->{count}++;
-            print { $o->{out} } $json;
+            $o->print(",") if $o->{count}++;
+            $o->print($json);
         },
         post => sub {
-            require JSON;
             my $o = shift;
             if ( $o->{count} ) {
-                say { $o->{out} } " ]";
+                $o->say(" ]");
             }
             elsif ( defined $o->{count} ) {
-                say { $o->{out} } "]";
+                $o->say("]");
             }
             else {    # FIXME: this should not be called
-                say { $o->{out} } "[]";
+                $o->say("[]");
             }
         }
     ),
@@ -507,16 +548,14 @@ my %FORMATS = (
     ldjson => App::wdq::Format->new(
         row => sub {
             my ( $o, $row ) = @_;
-            require JSON;
-            say { $o->{out} } json( simple_row( $row, $o->{vars} ) );
+            $o->say( json( simple_row( $row, $o->{vars} ) ) );
         }
     ),
 
     # pipe to Catmandu exporter
     export => App::wdq::Format->new(
         pre => sub {
-            my $o = shift;
-            $o->{exporter} = $EXPORTER;
+            $_[0]->{exporter} = $EXPORTER;
         },
         row => sub {
             my ( $o, $row ) = @_;
@@ -541,7 +580,7 @@ my %FORMATS = (
                 $s = $COLORS{substr $1,0,1} . $s . "\e[0m" if $1 and $OPT{color};
                 $s;
             !eg;
-            say { $o->{out} } $record;
+            $o->say($record);
         }
     ),
 );
@@ -593,7 +632,7 @@ sub http_get {
 
     state $http = HTTP::Tiny->new(
         default_headers => {
-            agent => "wdq/$VERSION"
+            agent => "wdq/$VERSION",
         }
     );
 
@@ -702,10 +741,9 @@ if ( $MODE eq 'lookup' ) {
         $_->{description} = delete $_->{idDescription};
         $_;
     };
-    my $output = {
-        out  => \*STDOUT,
-        vars => [qw(id label description)]
-    };
+
+    my $output = $format->start( [qw(id label description)], \*STDOUT )
+      unless $OPT{'no-execute'};
     my $error = 0;
 
     my $lookup = sub {
@@ -722,11 +760,7 @@ if ( $MODE eq 'lookup' ) {
             my $res = http_get( $OPT{api}, query => $query, format => 'json' );
             if ( $res->{success} ) {
                 my $iter = parse_response( $res->{content}, $varmap );
-                unless ( $output->{head} ) {
-                    $output->{head} = 1;
-                    $format->{pre}->($output) if $format->{pre};
-                }
-                $format->{row}->( $output, $iter->next ) if $iter->peek;
+                $output->add($_) for $iter->get_all;
             }
             elsif ( !$OPT{ignore} ) {
                 warning("not found: $id");
@@ -749,14 +783,75 @@ if ( $MODE eq 'lookup' ) {
         }
     }
 
-    if ( !$OPT{'no-execute'} and $format->{post} ) {
-        $format->{post}->($output);
-    }
+    $output->end() if $output;
+
     exit $error;
 }
 
+sub perform_search {
+    my $query = shift;
+
+    if ( $OPT{'no-mediawiki'} ) {
+        warning("MediaWiki API disabled");
+        exit 1;
+    }
+
+    my $api = "https://www.wikidata.org/w/api.php";
+    my $res = http_get(
+        $api,
+        action   => 'wbsearchentities',
+        language => $OPT{language},
+        uselang  => $OPT{language},       # TODO: what if multiple?
+        type     => 'item',
+        search   => $query,
+        format   => 'json',
+    );
+    exit 1 unless $res->{success};
+
+    my $data = JSON->new->decode( $res->{content} );
+
+    $data = [
+        map {
+            my $label =
+                $_->{match}{type} eq 'alias'
+              ? $_->{label} . " (" . $_->{match}{text} . ")"
+              : $_->{label};
+
+            # TODO: include language?
+            my $row = {
+                id    => RDF::Trine::Node::Resource->new( $_->{concepturi} ),
+                label => RDF::Trine::Node::Literal->new($label),
+            };
+            $row->{description} =
+              RDF::Trine::Node::Literal->new( $_->{description} )
+              if defined $_->{description};
+            $row;
+        } @{ $data->{search} }
+    ];
+
+    return $data;
+}
+
+if ( $MODE eq 'search' ) {
+    my $query = join ' ', @ARGV;
+    my $data = perform_search($query);
+    unless (@$data) {
+        exit if $OPT{ignore};
+        warning("not found: $query");
+        exit 1;
+    }
+    $format->emit( $data, [qw(id label description)], \*STDOUT );
+    exit;
+
+    # TODO: respect $OPT{limit}, $OPT{ids}, $OPT{'no-execute'}, $OPT{response}
+}
+
+# query mode
 my ( $query, $sparql, $variables );
-{
+if ( $MODE eq 'query' ) {
+    $OPT{query} //= shift @ARGV if @ARGV;
+    $OPT{query} //= '-';
+
     local $/ = undef;
     if ( $OPT{query} eq '-' ) {
         $query = <STDIN>;
@@ -838,10 +933,12 @@ if ( $format eq 'xml' ) {
 # convert SPARQL JSON response
 my $iterator = parse_response( $res->{content} );
 
-# convert result
+# print result
 if ( $OPT{ignore} || $iterator->peek ) {
     my $vars = $variables // sort keys %{ $iterator->peek };
-    $format->emit( $iterator, $vars, \*STDOUT );
+
+    # TODO: streaming
+    $format->emit( [ $iterator->get_all ], $vars, \*STDOUT );
 }
 else {
     warning("not found");
@@ -964,7 +1061,7 @@ C<--header/--no-header>, and C<--color/--no-color>.
 
 =head2 Formats
 
-Option C<--format> (or C<-f>) sets an output format or string template:
+Option C<--format>/C<-f> sets an output format or string template:
 
 =over
 
@@ -978,8 +1075,8 @@ Line delimited Flat JSON
 
 =item C<csv>
 
-SPARQL Query Results CSV Format. Suppress header with option C<--no-header> or
-C<-H>.  Use Catmandu CSV exporter for more options
+SPARQL Query Results CSV Format. Suppress header with option
+C<--no-header>/C<-H>.  Use Catmandu CSV exporter for more options
 
 =item C<tsv>
 
