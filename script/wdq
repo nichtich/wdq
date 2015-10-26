@@ -1033,7 +1033,7 @@ wdq - command line access to Wikidata Query Service
 
 Access L<Wikidata Query Service|https://query.wikidata.org/> via command line
 to perform SPARQL queries (C<query> mode), lookup entities (C<lookup>), or
-search items and properties (C<search> or C<psearch>). 
+search items and properties (C<search> or C<psearch>):
 
   wdq -g en solar system        # search 'solar system' in English
   wdq psearch -g es parte       # search property 'parte' in Spanish
@@ -1042,7 +1042,7 @@ search items and properties (C<search> or C<psearch>).
 
 See the manual for details or get help via C<wdq help>:
 
-  wdq help options              # list and explain command line options 
+  wdq help options              # list and explain command line options
   wdq help modes                # list and explain request modes
   wdq help output               # explain output control
   wdq help formats              # list and explain output formats
@@ -1059,7 +1059,7 @@ arguments. The default mode without arguments is C<query>:
   wdq query < file  # ditto
   wdq -q file       # ditto
 
-=over 
+=over
 
 =item C<query>
 
@@ -1084,6 +1084,10 @@ arguments. Result fields are C<label>, C<description>, and C<id>:
 Search for items or properties. Result fields are C<label>, C<id>,
 C<description>, and possibly matched C<alias>. Search and result language is
 read from environment or option C<--language>/C<-g>.
+
+  wdq search aliens
+
+Default output format in search mode is C<pretty>.
 
 =back
 
@@ -1142,7 +1146,7 @@ Don't query MediaWiki API to map URLs to Wikidata items.
 =item --no-execute|-n
 
 Don't execute SPARQL queries but show them in expanded form. Useful to
-validate and pretty-print queries. MediaWiki API requests may be 
+validate and pretty-print queries. MediaWiki API requests may be
 
 =item -N
 
@@ -1172,8 +1176,8 @@ Show version if this script
 
 =head1 OUTPUT
 
-Output can be controlled with options C<--format>, C<--export>,
-C<--header/--no-header>, and C<--color/--no-color>.
+Output can be controlled with options C<--format>/C<-f>, C<--export>,
+C<--header>/C<--no-header>/C<-H>, and C<--color>/C<--no-color>/C<-C>.
 
 =head2 Formats
 
@@ -1181,9 +1185,9 @@ Option C<--format>/C<-f> sets an output format or string template:
 
 =over
 
-=item C<simple> (default)
+=item C<simple> (default in query and lookup mode)
 
-Flat JSON without language tags (default)
+Flat JSON without language tags
 
 =item C<ldjson>
 
@@ -1198,7 +1202,7 @@ C<--no-header>/C<-H>.  Use Catmandu CSV exporter for more options
 
 SPARQL Query Results TSV Format
 
-=item C<xml> 
+=item C<xml>
 
 SPARQL Query Results XML Format
 
@@ -1206,7 +1210,7 @@ SPARQL Query Results XML Format
 
 SPARQL Query Results JSON Format
 
-=item C<pretty>
+=item C<pretty> (default in search mode)
 
 Default string template to print C<label>, C<alias>, C<id>, C<description>.
 Also sets option C<--ids> unless disabled
