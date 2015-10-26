@@ -33,7 +33,7 @@ GetOptions(
     'ignore!',
     'limit=i', '1!', '2!', '3!', '4!', '5!', '6!', '7!', '8!', '9!',
     'default-prefixes!',
-    'response=s',    # not documented
+    'response=s',    # not documented, does not respect --limit
     'export=s',
     'force!',
 ) or exit 1;
@@ -49,10 +49,6 @@ my %COLORS = (
     i => "\e[0;33m",                              # identifier: yellow
     e => "\e[1;31m",                              # error: bold red
 );
-
-sub cDefault {
-    $OPT{color} ? "\e[0;39m$_[0]\e[0m" : $_[0]    # default
-}
 
 sub cBold {
     $OPT{color} ? "$COLORS{t}$_[0]\e[0m" : $_[0];
@@ -150,7 +146,9 @@ sub pod_text {
         indent   => 2,
         @_
     );
-    $text =~ s/^(.[^\s].+:)$/cBold($1)/mge;    # headers
+    $text =~ s/^(.[^\s].+:)$/cBold($1)/mge;               # headers
+    $text =~ s/("[^"\n]+")/cValue($1)/mge;                # strings
+    $text =~ s/(<[^->\n][^>\n]+>)/cIdentifier($1)/mge;    # URLs
     $text;
 }
 
@@ -162,8 +160,8 @@ elsif ( $OPT{version} ) {
     @ARGV = qw(help version);
 }
 elsif ( $OPT{namespaces} ) {
-    warning("--namespaces is deprecated. Use 'wdq help namespaces' instead!");
-    @ARGV = qw(help namespaces);
+    warning("--namespaces is deprecated. Use 'wdq help prefixes' instead!");
+    @ARGV = qw(help prefixes);
 }
 elsif ( $OPT{ontology} ) {
     warning("--ontology is deprecated. Use 'wdq help ontology' instead!");
@@ -174,72 +172,64 @@ if ( @ARGV and $ARGV[0] eq 'help' ) {
     shift @ARGV;
     my $topic = lc( shift @ARGV );
 
-    if ( $topic eq 'version' ) {
-        say "wdq $VERSION";
+    my $help;
+    if ( $topic =~ /^ver(sion)?$/ ) {
+        $help = cBold('wdq') . " $VERSION\n";
     }
-    elsif ( $topic =~ /^(namespace|prefix)/ ) {
-        for my $prefix ( sort keys %NAMESPACES ) {
-            printf "%8s: %s\n", $prefix, $NAMESPACES{$prefix};
-        }
+    elsif ( $topic =~ /^pref?(ix(es)?)?$/ ) {
+        $help = join( "\n",
+            map { sprintf "%8s: %s", $_, cIdentifier( $NAMESPACES{$_} ); }
+            sort keys %NAMESPACES )
+          . "\n";
+        $help =~ s/^([^:]+):/cName($1).":"/mge;
     }
-    elsif ( $topic eq 'output' ) {
-        print pod_text( -sections => ['OUTPUT'] );
-    }
-    elsif ( $topic =~ /^(formats?)$/ ) {
-        print pod_text( -sections => ['OUTPUT/Formats'] );
+    elsif ( $topic =~ /^out(put)?$/ ) {
+        $help = pod_text( -sections => ['OUTPUT'] );
+        $help =~
+s/( (name|value|identifier|title|error))/$COLORS{substr $2, 0,1}.$1."\e[0m"/mge;
     }
     elsif ( $topic eq 'pretty' ) {
-        my $help = pod_text( -sections => ['OUTPUT/Pretty'] );
-        $help =~ s/({(.)~.+})/$COLORS{$2}.$1."\e[0m"/mge;
-        print $help;
+        $help = pod_text( -sections => ['OUTPUT/Pretty'] );
+        $help =~
+s/( (name|value|identifier|title|error))/$COLORS{substr $2, 0,1}.$1."\e[0m"/mge;
     }
-    elsif ( $topic eq 'export' ) {
-        print pod_text( -sections => ['OUTPUT/Export'] );
+    elsif ( $topic =~ /^formats?$/ ) {
+        $help = pod_text( -sections => ['OUTPUT/Formats'] );
     }
-    elsif ( $topic eq 'ontology' ) {
-        my $help = pod_text( -sections => ['WIKIDATA ONTOLOGY'] );
+    elsif ( $topic =~ /^modes?$/ ) {
+        $help = pod_text( -sections => ['MODES'] );
+    }
+    elsif ( $topic =~ /^exp?(ort)?$/ ) {
+        $help = pod_text( -sections => ['OUTPUT/Export'] );
+    }
+    elsif ( $topic =~ /^ont(ology)?$/ ) {
+        $help = pod_text( -sections => ['WIKIDATA ONTOLOGY'] );
         $help =~ s/^.*Wikidata Ontology:.*\n//;
         $help =~ s/^(    |  )//mg;
         $help =~ s/^([a-z]+)/cBold($1)/mgei;
         $help =~ s/ ([A-Z][A-Za-z]+)/" ".cBold($1)/mge;
-        $help =~ s/(<--|-->|--)/cDefault($1)/mge;
         $help =~ s/ ([a-z]+:([a-zA-Z_]+)?|[a-z][a-zA-Z]+)/" ".cName($1)/mge;
-        $help =~ s/(<[^ >]+>|@[a-z_]+)/cIdentifier($1)/mge;
-        $help =~ s/("[^"\n]+")/cValue($1)/mge;
+        $help =~ s/(@[a-z_]+)/cIdentifier($1)/mge;
         print $help;
     }
+    elsif ( $topic =~ /^opt(ions?)?$/ ) {
+        $help = pod_text( -sections => ['OPTIONS'] );
+        $help =~ s/^( *--?[^ ]+( [^ ].*)?)$/cName($1)/mge;  # options
+        $help =~ s/^\n//gm;                                 # remove empty lines
+    }
     else {
-        # TODO: use pretty string template instead
-        my $help = pod_text(
-            -msg => cBold("wdq ")
-              . cValue("[query]  ")
-              . cName("[OPTIONS]")
-              . " < query\n"
-              . cBold("wdq ")
-              . cValue(" lookup  ")
-              . cName("[OPTIONS]")
-              . " < ids\n"
-              . cBold("wdq ")
-              . cValue("[lookup] ")
-              . cName("[OPTIONS]")
-              . " ids...\n"
-              . cBold("wdq ")
-              . cValue("help ")
-              . cValue("[format|output|ontology|prefixes|pretty|export]")
-              . "\n",
-            -sections => [qw(USAGE OPTIONS)],
+        $help = pod_text(
+            -msg => 'wdq' . ' [ '
+              . join( ' ] [ ',
+                cName('MODE'), cName('OPTIONS'),
+                cName('REQUEST') . ' | ' . cName('< REQUEST_FILE') )
+              . " ]\n",
+            -sections => ['SYNOPSIS'],
         );
         $help =~ s/\n\n  -/\n  -/gm;
         $help =~ s/^      /    /mg;
-        if ( $OPT{color} ) {
-            $help =~ s/^([a-z]+:)/cBold($1)/mgei;          # headers
-            $help =~ s/^(  --?.*)$/cName($1)/mge;          # options
-            $help =~ s/("[^"\n]+")/cValue($1)/mge;         # strings
-            $help =~ s/(<[^>\n]+>)/cIdentifier($1)/mge;    # URLs
-        }
-        chomp $help;
-        print $help;
     }
+    print $help;
     exit;
 }
 
@@ -247,16 +237,13 @@ if ( $OPT{man} ) {
     my $module = $OPT{color} ? 'Pod::Text::Color' : 'Pod::Text';
 
     # may fail if pure script installed by hand
-    eval "require $module; require App::wdq";              ## no critic
+    eval "require $module; require App::wdq";    ## no critic
     $module->new->parse_from_file( $INC{'App/wdq.pm'} // $0 );
     exit;
 }
 
 # default SPARQL endpoint
 $OPT{api} //= 'https://query.wikidata.org/bigdata/namespace/wdq/sparql';
-
-# default output format
-$OPT{format} = lc( $OPT{format} // 'simple' );
 
 # add default prefixes by default
 $OPT{'default-prefixes'} //= 1;
@@ -286,8 +273,8 @@ if ( $OPT{N} ) {
 my $MODE = !@ARGV ? 'query' : do {
     my $arg = $ARGV[0];
     $arg =~ s/^\s*|\s*$//g;
-    if ( $arg =~ /^(query|lookup|search)$/ ) {
-        shift @ARGV;
+    if ( $arg =~ /^(query|lookup|p?search)$/ ) {
+        lc( shift @ARGV );
     }
     elsif ( $arg =~ $ENTITY_PATTERN or $arg =~ $SITELINK_PATTERN ) {
         'lookup';
@@ -306,6 +293,10 @@ my $MODE = !@ARGV ? 'query' : do {
         }
     }
 };
+
+# default output format
+$OPT{format} =
+  lc( $OPT{format} // ( $MODE =~ /^p?search$/ ? 'pretty' : 'simple' ) );
 
 # require only if actually needed
 require RDF::Query;
@@ -388,13 +379,6 @@ package App::wdq::Format {
         bless {@_}, $class;
     }
 
-    sub emit {
-        my ( $self, $rows, $vars, $out ) = @_;
-        my $output = $self->start( $vars, $out );
-        $output->add($_) for @$rows;
-        $output->end();
-    }
-
     sub start {
         my ( $self, $vars, $out ) = @_;
         my $output = bless { format => $self, vars => $vars, out => $out },
@@ -408,10 +392,10 @@ sub simple_node {
     if ( !blessed( $_[0] ) ) {
         '';
     }
-    elsif ( $_[0]->isa('RDF::Trine::Node::Resource') ) {
+    elsif ( $_[0]->is_resource ) {
         $_[0]->uri_value;
     }
-    elsif ( $_[0]->isa('RDF::Trine::Node::Literal') ) {
+    elsif ( $_[0]->is_literal ) {
         $_[0]->literal_value;
     }
     else {
@@ -447,6 +431,46 @@ sub xmlattr {
     my $text = xml(shift);
     $text =~ s/"/&quot;/gm;
     $text;
+}
+
+sub expand_format_string {
+    my ( $string, $vars ) = @_;
+
+    $string =~ s!{\s*([^}]+)}!
+            my @a = split /\|/, $1;
+            my $s = $vars->{shift @a};
+            my %o = map { /([^=]+)(=(.*))?/s; ($1 => $3) } @a;
+            pretty_variable( $s, \%o );
+        !eg;
+
+    $string;
+}
+
+sub pretty_variable {
+    my ( $value, $p ) = @_;
+
+    if ( !defined $value or $value eq '' ) {
+        $value = $p->{default} // return '';
+    }
+
+    if ( defined $p->{length} ) {
+        if ( length $value > $p->{length} ) {
+            $value = substr( $value, 0, $p->{length} - 1 ) . "\x{2026}";
+        }
+        elsif ( defined $p->{align} ) {
+            my $f = $p->{length} . 's';
+            $value = sprintf( $p->{align} eq 'right' ? "%$f" : "%-$f", $value );
+        }
+    }
+
+    if ( $OPT{color} && $COLORS{ $p->{style} } ) {
+        $value = $COLORS{ $p->{style} } . $value . "\e[0m";
+    }
+
+    $value = $p->{pre} . $value  if defined $p->{pre};
+    $value = $value . $p->{post} if defined $p->{post};
+
+    $value;
 }
 
 my %FORMATS = (
@@ -564,13 +588,13 @@ my %FORMATS = (
     csv => App::wdq::Format->new(
         pre => sub {
             my $o = shift;
-            $o->say( join cDefault(','), map { cName($_) } @{ $o->{vars} } )
+            $o->say( join ',', map { cName($_) } @{ $o->{vars} } )
               if $OPT{header};
         },
         row => sub {
             my ( $o, $row ) = @_;
             $o->say(
-                join cDefault(','),
+                join ',',
                 map {
                     my $s = simple_node( $row->{$_} );
                     if ( $s =~ /[",\x0A\x0D]/ ) {
@@ -601,15 +625,7 @@ my %FORMATS = (
         },
         post => sub {
             my $o = shift;
-            if ( $o->{count} ) {
-                $o->say(" ]");
-            }
-            elsif ( defined $o->{count} ) {
-                $o->say("]");
-            }
-            else {    # FIXME: this should not be called
-                $o->say("[]");
-            }
+            $o->say( $o->{count} ? " ]" : "]" );
         }
     ),
 
@@ -635,21 +651,12 @@ my %FORMATS = (
         }
     ),
 
+    # format string
     pretty => App::wdq::Format->new(
         row => sub {
             my ( $o, $row ) = @_;
-            my $record = $OPT{pretty};
-
-            $record =~ s!{([tvnie]~)?(([<>]?)(\d+))?([^}]+)}!
-                my $s = simple_node($row->{$5});
-                if ( $4 ) {
-                    $s = substr($s, 0, $4-1) . "\x{2026}" if length $s > $4;
-                    $s = sprintf($3 eq '<' ? "%-$4s" : "%$4s", $s) if $3;
-                }
-                $s = $COLORS{substr $1,0,1} . $s . "\e[0m" if $1 and $OPT{color};
-                $s;
-            !eg;
-            $o->say($record);
+            $row = { map { $_ => simple_node( $row->{$_} ) } keys %$row };
+            $o->say( expand_format_string( $OPT{pretty}, $row ) );
         }
     ),
 );
@@ -659,8 +666,15 @@ if ( $OPT{format} =~ /{[^}]+}/ ) {
     $OPT{format} = 'pretty';
 }
 elsif ( $OPT{format} eq 'pretty' ) {
-    $OPT{pretty} //= '{v~label} ({i~id}): {v~description}';
-    $OPT{ids}    //= 1;
+    $OPT{pretty} //=
+        "{id|style=i}{label|style=v|pre=: }"
+      . "{alias|pre= (|post=)|style=v}"
+      . "{description|length=78|pre=\n  }";
+    $OPT{ids} //= 1;
+}
+
+if ( $MODE =~ /^p?search$/ ) {
+    $OPT{ids} //= 1;
 }
 
 my $format = $FORMATS{ $OPT{format} } // do {
@@ -692,16 +706,19 @@ sub expand_query {
 }
 
 sub http_get {
+    my ( $url, %query ) = @_;
+
     require HTTP::Tiny;
-    state $http =
-      HTTP::Tiny->new( default_headers => { agent => "wdq/$VERSION" } );
+    my $http = HTTP::Tiny->new(
+        default_headers => { agent => "wdq/$VERSION" },
+        timeout         => 30,
+    );
 
     if ( $OPT{response} ) {
         local ( @ARGV, $/ ) = $OPT{response};
         return <>;
     }
 
-    my ( $url, %query ) = @_;
     $query{format} = 'json';
 
     $url .= '?' . $http->www_form_urlencode( \%query );
@@ -787,15 +804,17 @@ SELECT ?id ?idLabel ?idDescription WHERE {
 SPARQL
 }
 
+sub literal { RDF::Trine::Node::Literal->new(@_) }
+
 sub map_ids {
     my $row = shift;
     foreach my $name ( keys %$row ) {
         my $v = $row->{$name};
         next unless $v->isa('RDF::Trine::Node::Resource');
         my $id;
-        $id = $+{id} if $v->uri_value =~ $ENTITY_PATTERN;
-        $id = $+{id} if $v->uri_value =~ $WIKIDATA_ID_PATTERN;
-        $row->{$name} = RDF::Trine::Node::Literal->new($id) if $id;
+        $id           = $+{id}       if $v->uri_value =~ $ENTITY_PATTERN;
+        $id           = $+{id}       if $v->uri_value =~ $WIKIDATA_ID_PATTERN;
+        $row->{$name} = literal($id) if $id;
     }
     $row;
 }
@@ -814,60 +833,22 @@ sub parse_response {
     $iter;
 }
 
-if ( $MODE eq 'lookup' ) {
-    require URI;
-    my $query;
-    my $varmap = sub {
-        $_->{label}       = delete $_->{idLabel};
-        $_->{description} = delete $_->{idDescription};
-        $_;
+sub map_searchresponse_to_row {
+    my $res      = shift;
+    my $language = $OPT{language};    # TODO: only first
+
+    my $row = {
+        id    => RDF::Trine::Node::Resource->new( $res->{concepturi} ),
+        label => literal( $res->{label}, $language ),
     };
-
-    my $output;
-
-    my $lookup = sub {
-        my $id = shift;
-        $id =~ s/^\s+|\s+$//g;    # trim whitespace
-        return if $id eq '';      # skip empty lines
-
-        $query = get_lookup_query($id) or return;
-        $query = RDF::Query->new( expand_query($query) )->as_sparql;
-        if ( $OPT{'no-execute'} ) {
-            say $query;
-            return;
-        }
-
-        my $res = http_get( $OPT{api}, query => $query );
-        my $iterator = parse_response($res);
-
-        $iterator = RDF::Trine::Iterator::smap( $varmap,   $iterator );
-        $iterator = RDF::Trine::Iterator::smap( \&map_ids, $iterator )
-          if $OPT{ids};
-
-        $output //= $format->start( [qw(id label description)], \*STDOUT );
-
-        while ( my $row = $iterator->next ) {
-            $output->add($row);
-        }
-    };
-
-    my $limit = $OPT{limit} // 0;
-    if (@ARGV) {
-        foreach (@ARGV) {
-            $lookup->($_);
-            last if !--$limit;
-        }
+    if ( defined $res->{description} ) {
+        $row->{description} = literal( $res->{description}, $language );
     }
-    else {
-        while (<>) {
-            $lookup->($_);
-            last if !--$limit;
-        }
+    if ( $res->{match}{type} eq 'alias' ) {
+        $row->{alias} = literal( $res->{match}{text}, $language );
     }
 
-    $output->end() if $output;
-
-    exit;
+    $row;
 }
 
 sub perform_search {
@@ -878,51 +859,27 @@ sub perform_search {
         exit 1;
     }
 
-    my $api = "https://www.wikidata.org/w/api.php";
-    my $res = http_get(
+    my $language = $OPT{language};                         # TODO: only first
+    my $api      = "https://www.wikidata.org/w/api.php";
+    my $res      = http_get(
         $api,
-        action   => 'wbsearchentities',
-        language => $OPT{language},
-        uselang  => $OPT{language},       # TODO: what if multiple?
-        type     => 'item',
-        search   => $query,
+        action         => 'wbsearchentities',
+        language       => $language,
+        uselang        => $language,
+        strictlanguage => '1',
+        type           => $MODE eq 'search' ? 'item' : 'property',
+        search         => $query,
+        $OPT{limit} ? ( limit => $OPT{limit} ) : (),
     );
     my $data = JSON->new->decode($res);
 
-    $data = [
-        map {
-            my $label =
-                $_->{match}{type} eq 'alias'
-              ? $_->{label} . " (" . $_->{match}{text} . ")"
-              : $_->{label};
+    $data = [ map { map_searchresponse_to_row($_) } @{ $data->{search} } ];
 
-            # TODO: include language?
-            my $row = {
-                id    => RDF::Trine::Node::Resource->new( $_->{concepturi} ),
-                label => RDF::Trine::Node::Literal->new($label),
-            };
-            $row->{description} =
-              RDF::Trine::Node::Literal->new( $_->{description} )
-              if defined $_->{description};
-            $row;
-        } @{ $data->{search} }
-    ];
-
-    return $data;
+    require RDF::Trine::Iterator::Bindings;
+    RDF::Trine::Iterator::Bindings->new($data);
 }
 
 my ( $variables, $iterator, $query );
-
-if ( $MODE eq 'search' ) {
-    $query = join ' ', @ARGV;
-
-    # TODO: respect $OPT{limit}, $OPT{'no-execute'}, $OPT{response}
-    my $data = perform_search($query);
-
-    require RDF::Trine::Iterator::Bindings;
-    $variables = [qw(id label description)];
-    $iterator = RDF::Trine::Iterator::Bindings->new( $data, $variables );
-}
 
 # query mode
 if ( $MODE eq 'query' ) {
@@ -982,18 +939,88 @@ if ( $MODE eq 'query' ) {
     $iterator = parse_response($res);
 }
 
-$iterator = RDF::Trine::Iterator::smap( \&map_ids, $iterator ) if $OPT{ids};
+# lookup mode
+elsif ( $MODE eq 'lookup' ) {
+    require URI;
+    my $query;
+    my $varmap = sub {
+        $_->{label}       = delete $_->{idLabel};
+        $_->{description} = delete $_->{idDescription};
+        $_;
+    };
 
-# print result
-if ( $OPT{ignore} || $iterator->peek ) {
-    my $vars = $variables // sort keys %{ $iterator->peek };
+    my $output;
 
-    # TODO: streaming
-    $format->emit( [ $iterator->get_all ], $vars, \*STDOUT );
+    my $lookup = sub {
+        my $id = shift;
+        $id =~ s/^\s+|\s+$//g;    # trim whitespace
+        return if $id eq '';      # skip empty lines
+
+        $query = get_lookup_query($id) or return;
+        $query = RDF::Query->new( expand_query($query) )->as_sparql;
+        if ( $OPT{'no-execute'} ) {
+            say $query;
+            return;
+        }
+
+        my $res = http_get( $OPT{api}, query => $query );
+        my $iterator = parse_response($res);
+
+        $iterator = RDF::Trine::Iterator::smap( $varmap,   $iterator );
+        $iterator = RDF::Trine::Iterator::smap( \&map_ids, $iterator )
+          if $OPT{ids};
+
+        $output //= $format->start( [qw(id label description)], \*STDOUT );
+
+        while ( my $row = $iterator->next ) {
+            $output->add($row);
+        }
+    };
+
+    my $limit = $OPT{limit} // 0;
+    if (@ARGV) {
+        foreach (@ARGV) {
+            $lookup->($_);
+            last if !--$limit;
+        }
+    }
+    else {
+        while (<>) {
+            $lookup->($_);
+            last if !--$limit;
+        }
+    }
+
+    $output->end() if $output;
+
+    exit;
 }
-else {
+
+# search mode
+elsif ( $MODE =~ /^p?search$/ ) {
+    $query     = join ' ', @ARGV;
+    $variables = [qw(id label alias description)];
+    $iterator  = perform_search($query);
+}
+
+unless ( $OPT{ignore} || $iterator->peek ) {
     warning( $query ? "not found: $query" : "not found" );
     exit 1;
+}
+
+# abbreviate identifier if requested
+$iterator = RDF::Trine::Iterator::smap( \&map_ids, $iterator ) if $OPT{ids};
+
+# emit results
+{
+    my $vars = $variables // sort keys %{ $iterator->peek };
+    my $output = $format->start( $vars, \*STDOUT );
+    my $n = 0;
+    while ( my $row = $iterator->next ) {
+        last if $OPT{limit} and $n++ >= $OPT{limit};
+        $output->add($row);
+    }
+    $output->end;
 }
 
 __END__
@@ -1002,25 +1029,63 @@ __END__
 
 wdq - command line access to Wikidata Query Service
 
-=head1 USAGE
+=head1 SYNOPSIS
 
-Access L<Wikidata Query Service|https://query.wikidata.org/> via command line.
-In C<query> mode (default), a SPARQL query is read from STDIN or option
-C<--query>.  Default namespaces are and C<SELECT> clause are added if missing.
-In C<lookup> mode, Wikidata entity ids, URLs, or Wikimedia project URLs are
-read from STDIN or as command line arguments to look up label and description.
+Access L<Wikidata Query Service|https://query.wikidata.org/> via command line
+to perform SPARQL queries (C<query> mode), lookup entities (C<lookup>), or
+search items and properties (C<search> or C<psearch>). 
 
-=head1 EXAMPLES
+  wdq -g en solar system        # search 'solar system' in English
+  wdq psearch -g es parte       # search property 'parte' in Spanish
+  wdq P361 Q544                 # lookup properties and items
+  wdq '?c wdt:P361 wd:Q544'     # query parts of the solar system
 
-  # get all parts of the solar system
-  wdq -q '?c wdt:P361 wd:Q544'
-  wdq -q '{ ?c wdt:P361 wd:Q544 }'                # equivalent
-  wdq -q 'SELECT * WHERE { ?c wdt:P361 wd:Q544 }' # equivalent
+See the manual for details or get help via C<wdq help>:
 
-  # look up label and description
+  wdq help options              # list and explain command line options 
+  wdq help modes                # list and explain request modes
+  wdq help output               # explain output control
+  wdq help formats              # list and explain output formats
+  wdq help ontology             # show Wikidata ontology in a nutshell
+  wdq help prefixes             # list RDF prefixes allowed in queries
+  wdq help version              # show version of wdq
+
+=head1 MODES
+
+A mode can be set explicitly via first argument or it is guessed from request
+arguments. The default mode without arguments is C<query>:
+
+  wdq < file        # read SPARQL query from file
+  wdq query < file  # ditto
+  wdq -q file       # ditto
+
+=over 
+
+=item C<query>
+
+SPARQL query is read from STDIN, option C<--query|-q>, or arguments.  Namespace
+definitions and C<SELECT> clause are added if missing.
+
+  wdq '?c wdt:P361 wd:Q544'
+  wdq '{ ?c wdt:P361 wd:Q544 }'                 # equivalent
+  wdq 'SELECT * WHERE { ?c wdt:P361 wd:Q544 }'  # equivalent
+
+=item C<lookup>
+
+Read Wikidata entity ids, URLs, or Wikimedia project URLs from STDIN or
+arguments. Result fields are C<label>, C<description>, and C<id>:
+
   wdq Q1
-  wdq lookup Q1             # equivalent
-  echo Q1 | wdq lookup      # equivalent
+  wdq lookup Q1                                 # equivalent
+  echo Q1 | wdq lookup                          # equivalent
+
+=item C<search>/C<psearch>
+
+Search for items or properties. Result fields are C<label>, C<id>,
+C<description>, and possibly matched C<alias>. Search and result language is
+read from environment or option C<--language>/C<-g>.
+
+=back
 
 =head1 OPTIONS
 
@@ -1143,8 +1208,8 @@ SPARQL Query Results JSON Format
 
 =item C<pretty>
 
-Default string template to print C<label>, C<id>, and C<description>.  Also
-sets option C<--ids> unless disabled
+Default string template to print C<label>, C<alias>, C<id>, C<description>.
+Also sets option C<--ids> unless disabled
 
 =item C<...>
 
@@ -1155,20 +1220,27 @@ String template.  Call C<wdq help pretty> for details
 =head2 Pretty
 
 Option C<--format> can be set to a string template with bracket expressions
-(for instance C<{id}> is replaced by the value of variable C<id>). The variable
-name can be preceded by a color code and a length:
+with optional template parameters (for instance C<{id|pre= (|post=)}>).
 
-  {n~foo} : highlight value of foo like a name
-  {v~foo} : highlight value of foo like a value
-  {i~foo} : highlight value of foo like an identifier
-  {t~foo} : highlight value of foo like a title
-  {e~foo} : highlight value of foo like an error
+=over
 
-  {4foo}  : cut value of foo to 4 characters or less
-  {>4foo} : cut/fill value of foo to 4 characters, right-aligned
-  {<4foo} : cut/fill value of foo to 4 characters, left-aligned
+=item style
 
-  {v~<8foo} : set both, color and length
+Highlight C<n> name, C<v> value, C<i> identifier, C<t> title, or C<e> error
+
+=item length
+
+Abbreviate long values
+
+=item align
+
+Use C<left> or C<right> to align short values to a given C<length>
+
+=item pre/post
+
+Add string before/after value
+
+=back
 
 =head2 Export
 
