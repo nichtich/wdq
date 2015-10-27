@@ -25,6 +25,7 @@ GetOptions(
     'query|q=s',
     'ids|i!',
     'language|g=s',
+    'enumerate|e!',
     'color|C!',
     'header!', 'H!',
     'no-execute|n!',
@@ -708,16 +709,16 @@ sub expand_query {
 sub http_get {
     my ( $url, %query ) = @_;
 
+    if ( $OPT{response} ) {
+        local ( @ARGV, $/ ) = $OPT{response};
+        return <>;
+    }
+
     require HTTP::Tiny;
     my $http = HTTP::Tiny->new(
         default_headers => { agent => "wdq/$VERSION" },
         timeout         => 30,
     );
-
-    if ( $OPT{response} ) {
-        local ( @ARGV, $/ ) = $OPT{response};
-        return <>;
-    }
 
     $query{format} = 'json';
 
@@ -819,18 +820,12 @@ sub map_ids {
     $row;
 }
 
-sub parse_response {
-    my ( $json, @map ) = @_;
-
+sub get_sparql {
+    my $json = http_get( $OPT{api}, query => shift );
     require RDF::Trine::Iterator::JSONHandler;
-    return RDF::Trine::Iterator->new( [], 'bindings', [] ) unless $json;
-
-    my $iter = RDF::Trine::Iterator::JSONHandler->new->parse($json);
-
-    unshift @map, \&map_ids if $OPT{ids};
-    $iter = RDF::Trine::Iterator::smap( $_, $iter ) for @map;
-
-    $iter;
+    $json
+      ? RDF::Trine::Iterator::JSONHandler->new->parse($json)
+      : RDF::Trine::Iterator->new( [], 'bindings', [] );
 }
 
 sub map_searchresponse_to_row {
@@ -877,6 +872,37 @@ sub perform_search {
 
     require RDF::Trine::Iterator::Bindings;
     RDF::Trine::Iterator::Bindings->new($data);
+}
+
+sub postprocess_iterator {
+    my ( $iterator, @map ) = @_;
+
+    # abbreviate identifiers
+    push @map, \&map_ids if $OPT{ids};
+
+    # enumerate results
+    my $n = 1;
+    if ( $OPT{enumerate} ) {
+        push @map, sub {
+            my $row = shift;
+            $row->{n} = literal( $n++ );
+            $row;
+          }
+    }
+
+    # apply postprocessing
+    if (@map) {
+        $iterator = RDF::Trine::Iterator::smap(
+            sub {
+                my $row = shift;
+                $row = $_->($row) for @map;
+                $row;
+            },
+            $iterator
+        );
+    }
+
+    $iterator;
 }
 
 my ( $variables, $iterator, $query );
@@ -935,8 +961,7 @@ if ( $MODE eq 'query' ) {
         exit;
     }
 
-    my $res = http_get( $OPT{api}, query => $query );
-    $iterator = parse_response($res);
+    $iterator = get_sparql($query);
 }
 
 # lookup mode
@@ -944,9 +969,10 @@ elsif ( $MODE eq 'lookup' ) {
     require URI;
     my $query;
     my $varmap = sub {
-        $_->{label}       = delete $_->{idLabel};
-        $_->{description} = delete $_->{idDescription};
-        $_;
+        my $row = shift;
+        $row->{label}       = delete $row->{idLabel};
+        $row->{description} = delete $row->{idDescription};
+        $row;
     };
 
     my $output;
@@ -963,14 +989,13 @@ elsif ( $MODE eq 'lookup' ) {
             return;
         }
 
-        my $res = http_get( $OPT{api}, query => $query );
-        my $iterator = parse_response($res);
+        my $iterator = get_sparql($query);
+        $iterator = postprocess_iterator( $iterator, $varmap );
 
-        $iterator = RDF::Trine::Iterator::smap( $varmap,   $iterator );
-        $iterator = RDF::Trine::Iterator::smap( \&map_ids, $iterator )
-          if $OPT{ids};
+        my $vars = [qw(id label description)];
+        unshift( @$vars, 'n' ) if $OPT{enumerate};
 
-        $output //= $format->start( [qw(id label description)], \*STDOUT );
+        $output //= $format->start( $vars, \*STDOUT );
 
         while ( my $row = $iterator->next ) {
             $output->add($row);
@@ -1008,8 +1033,9 @@ unless ( $OPT{ignore} || $iterator->peek ) {
     exit 1;
 }
 
-# abbreviate identifier if requested
-$iterator = RDF::Trine::Iterator::smap( \&map_ids, $iterator ) if $OPT{ids};
+# postprocess results
+unshift( @$variables, 'n' ) if $OPT{enumerate} and $variables;
+$iterator = postprocess_iterator($iterator);
 
 # emit results
 {
@@ -1110,6 +1136,10 @@ Use a L<Catmandu> exporter as output format.
 =item --no-header|-H
 
 Exclude header in CSV output or other exporter.
+
+=item --enumerate|-e
+
+Enumerate results by adding a counter variable C<n>
 
 =item --limit INTEGER
 
