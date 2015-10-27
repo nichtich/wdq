@@ -1,6 +1,8 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+
+0.4.1  2015-10-27 13:44:50 CET
     - Fixed test
     - New option enumerate
  
