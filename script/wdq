@@ -796,10 +796,11 @@ sub get_lookup_query {
     my $uri = "http://www.wikidata.org/entity/" . uc($entity_id);
 
     return <<SPARQL;
-SELECT ?id ?idLabel ?idDescription WHERE {
+SELECT ?id ?label ?description WHERE {
     BIND(<$uri> AS ?id)
     SERVICE wikibase:label {
         bd:serviceParam wikibase:language "$OPT{language}" .
+        ?id rdfs:label ?label ; schema:description ?description
     }
 }
 SPARQL
@@ -967,14 +968,6 @@ if ( $MODE eq 'query' ) {
 # lookup mode
 elsif ( $MODE eq 'lookup' ) {
     require URI;
-    my $query;
-    my $varmap = sub {
-        my $row = shift;
-        $row->{label}       = delete $row->{idLabel};
-        $row->{description} = delete $row->{idDescription};
-        $row;
-    };
-
     my $output;
 
     my $lookup = sub {
@@ -982,7 +975,7 @@ elsif ( $MODE eq 'lookup' ) {
         $id =~ s/^\s+|\s+$//g;    # trim whitespace
         return if $id eq '';      # skip empty lines
 
-        $query = get_lookup_query($id) or return;
+        my $query = get_lookup_query($id) or return;
         $query = RDF::Query->new( expand_query($query) )->as_sparql;
         if ( $OPT{'no-execute'} ) {
             say $query;
@@ -990,7 +983,7 @@ elsif ( $MODE eq 'lookup' ) {
         }
 
         my $iterator = get_sparql($query);
-        $iterator = postprocess_iterator( $iterator, $varmap );
+        $iterator = postprocess_iterator($iterator);
 
         my $vars = [qw(id label description)];
         unshift( @$vars, 'n' ) if $OPT{enumerate};

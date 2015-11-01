@@ -4,12 +4,16 @@ use Test::Output;
 
 my $sparql = <<SPARQL;
 PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX schema: <http://schema.org/>
 PREFIX wikibase: <http://wikiba.se/ontology#>
-SELECT ?id ?idLabel ?idDescription WHERE {
+SELECT * WHERE {
 \t{}
 \tBIND(<http://www.wikidata.org/entity/Q243972> AS ?id)
 \tSERVICE wikibase:label {
 \t\tbd:serviceParam wikibase:language "fr" .
+\t\t?id rdfs:label ?label .
+\t\t?id schema:description ?description .
 \t}
 }
 SPARQL
