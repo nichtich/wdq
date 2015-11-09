@@ -330,6 +330,14 @@ if ( version->parse($RDF::Query::VERSION) < version->parse('2.915_01') ) {
       }
 }
 
+sub pretty_sparql {
+    my $sparql = $_[0]->as_sparql;
+    $sparql =~ s/^\s*{}\s*$//mg;    # BUG IN RDF::Query ?
+    $sparql =~ s/\n$//mg;
+    $sparql =~ s/\t/    /mg;
+    $sparql;
+}
+
 my $EXPORTER;
 if ( $OPT{export} || $OPT{format} eq 'export' ) {
     $EXPORTER = eval {
@@ -946,9 +954,7 @@ if ( $MODE eq 'query' ) {
 
     if ($sparql) {
         $variables = [ map { $_->name } @{ $sparql->parsed->{variables} } ];
-        $query = $sparql->as_sparql;
-        $query =~ s/\n$//mg;
-        $query =~ s/\t/    /mg;
+        $query = pretty_sparql($sparql);
     }
 
     # LIMIT and OFFSET are always last so we can safely use regexp here
@@ -976,7 +982,7 @@ elsif ( $MODE eq 'lookup' ) {
         return if $id eq '';      # skip empty lines
 
         my $query = get_lookup_query($id) or return;
-        $query = RDF::Query->new( expand_query($query) )->as_sparql;
+        $query = pretty_sparql( RDF::Query->new( expand_query($query) ) );
         if ( $OPT{'no-execute'} ) {
             say $query;
             return;

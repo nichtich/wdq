@@ -8,13 +8,12 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX schema: <http://schema.org/>
 PREFIX wikibase: <http://wikiba.se/ontology#>
 SELECT * WHERE {
-\t{}
-\tBIND(<http://www.wikidata.org/entity/Q243972> AS ?id)
-\tSERVICE wikibase:label {
-\t\tbd:serviceParam wikibase:language "fr" .
-\t\t?id rdfs:label ?label .
-\t\t?id schema:description ?description .
-\t}
+    BIND(<http://www.wikidata.org/entity/Q243972> AS ?id)
+    SERVICE wikibase:label {
+        bd:serviceParam wikibase:language "fr" .
+        ?id rdfs:label ?label .
+        ?id schema:description ?description .
+    }
 }
 SPARQL
 
