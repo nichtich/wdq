@@ -6,7 +6,7 @@ use Scalar::Util qw(blessed);
 use Encode qw(decode_utf8 encode_utf8);
 use JSON;
 
-our $VERSION = '0.4.1';
+our $VERSION = '0.4.2';
 
 # Assume everything outside is UTF-8
 binmode( STDIN,  ":encoding(UTF-8)" );
@@ -27,6 +27,7 @@ GetOptions(
     'language|g=s',
     'enumerate|e!',
     'color|C!',
+    'count|c=s',
     'header!', 'H!',
     'no-execute|n!',
     'no-mediawiki|m!',
@@ -332,8 +333,9 @@ if ( version->parse($RDF::Query::VERSION) < version->parse('2.915_01') ) {
 
 sub pretty_sparql {
     my $sparql = $_[0]->as_sparql;
-    $sparql =~ s/^\s*{}\s*$//mg;    # BUG IN RDF::Query ?
+    $sparql =~ s/^\s*{}\s*$//mg;                          # BUG IN RDF::Query ?
     $sparql =~ s/\n$//mg;
+    $sparql =~ s/LANG\(LANG\(\?/LANGMATCHES(LANG(?/mg;    # BUG in RDF::Query
     $sparql =~ s/\t/    /mg;
     $sparql;
 }
@@ -414,10 +416,16 @@ sub simple_node {
 
 sub simple_row {
     my ( $row, $vars ) = @_;
-    return {
+    my $simple = {
         map { $_ => simple_node( $row->{$_} ) }
         grep { defined $row->{$_} } @$vars
     };
+
+    # TODO: add language
+    #if (blessed $row->{label} && $row->{label}->is_literal) {
+    #    $simple->{language} = $row->{label}->literal_value_language;
+    #}
+    $simple;
 }
 
 sub json {
@@ -694,11 +702,18 @@ my $format = $FORMATS{ $OPT{format} } // do {
 sub expand_query {
     my $query = shift;
 
+    my $select = "*";
+
+    if ( $OPT{count} ) {
+        fatal("cannot expand query with COUNT") if $query =~ /^\s*SELECT/i;
+        $select = "(COUNT(DISTINCT ?$OPT{count}) AS ?count)";
+    }
+
     if ( $query =~ /^\s*{/m ) {
-        $query = "SELECT * WHERE $query";
+        $query = "SELECT $select WHERE $query";
     }
     elsif ( $query !~ /^[^{]*SELECT/ ) {
-        $query = "SELECT * WHERE { $query }";
+        $query = "SELECT $select WHERE { $query }";
     }
 
     if ( $OPT{'default-prefixes'} ) {
@@ -1153,6 +1168,8 @@ arguments. Result fields are C<label>, C<description>, and C<id>:
   echo Q1 | wdq lookup                          # equivalent
   wdq http://de.wikipedia.org/wiki/Universum    # same result
  
+=encoding utf8
+
 =head2 search / psearch
 
 Search for items or properties. Result fields are C<label>, C<id>,
@@ -1200,6 +1217,10 @@ Abbreviate Wikidata identifier URIs as strings.
 
 Language to query labels and descriptions in. Set to the locale by default.
 This option is currentl only used on lookup mode.
+
+=item --count|-c VARNAME
+
+Prepend SPARQL QUERY to count distinct values
 
 =item --ignore
 
@@ -1361,6 +1382,8 @@ L<miller|http://johnkerl.org/miller/> for processing results.
   # look up German Wikipedia article and get label description in French
   wdq -g fr http://de.wikipedia.org/wiki/Argon 
 
+  # count instances (P31) of books (Q571)
+  wdq --count x '?x wdt:P31 wd:Q571' --format {count}
 
 =head1 WIKIDATA ONTOLOGY
 

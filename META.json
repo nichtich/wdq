@@ -39,6 +39,7 @@
          "requires" : {
             "HTTP::Tiny" : "0.039",
             "RDF::Query" : "2.902",
+            "RDF::Trine" : "1.010",
             "perl" : "v5.14.0"
          }
       },
@@ -62,7 +63,7 @@
          "web" : "https://github.com/nichtich/wdq"
       }
    },
-   "version" : "0.4.1",
+   "version" : "0.4.2",
    "x_contributors" : [
       "Marius Hoch <hoo@online.de>"
    ]

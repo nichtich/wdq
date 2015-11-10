@@ -143,6 +143,10 @@ Default output format in search mode is `pretty`.
     Language to query labels and descriptions in. Set to the locale by default.
     This option is currentl only used on lookup mode.
 
+- --count|-c VARNAME
+
+    Prepend SPARQL QUERY to count distinct values
+
 - --ignore
 
     Ignore empty results instead of issuing warning and exit code.
@@ -292,6 +296,9 @@ also tools such as [jq](http://stedolan.github.io/jq/) and
 
     # look up German Wikipedia article and get label description in French
     wdq -g fr http://de.wikipedia.org/wiki/Argon 
+
+    # count instances (P31) of books (Q571)
+    wdq --count x '?x wdt:P31 wd:Q571' --format {count}
 
 # WIKIDATA ONTOLOGY
 
