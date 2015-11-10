@@ -1,6 +1,8 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+
+0.4.2  2015-11-10 15:10:09 CET
     - New option count
     - Minor fixes and cleanup
 
