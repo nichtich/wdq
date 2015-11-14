@@ -1,7 +1,7 @@
 package App::wdq;
 use v5.14;
 
-our $VERSION = '0.4.2';
+our $VERSION = '0.4.3';
 
 1;
 __END__

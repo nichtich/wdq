@@ -147,6 +147,11 @@ Default output format in search mode is `pretty`.
 
     Prepend SPARQL QUERY to count distinct values
 
+- --text|-t VARNAMES
+
+    Add label and description for selected entities. Names for entity `id` are
+    `label`/`description` or `xLabel`/`xDescription` for any `x`.
+
 - --ignore
 
     Ignore empty results instead of issuing warning and exit code.
@@ -207,6 +212,11 @@ Option `--format`/`-f` sets an output format or string template:
 
     Flat JSON without language tags
 
+- `pretty` (default in search mode)
+
+    Print `label`, `alias`, `id` and `description` or `count` when counting.
+    Also sets option `--ids`.
+
 - `ldjson`
 
     Line delimited Flat JSON
@@ -227,11 +237,6 @@ Option `--format`/`-f` sets an output format or string template:
 - `json`
 
     SPARQL Query Results JSON Format
-
-- `pretty` (default in search mode)
-
-    Default string template to print `label`, `alias`, `id`, `description`.
-    Also sets option `--ids` unless disabled
 
 - `...`
 
@@ -299,6 +304,9 @@ also tools such as [jq](http://stedolan.github.io/jq/) and
 
     # count instances (P31) of books (Q571)
     wdq --count x '?x wdt:P31 wd:Q571' --format {count}
+
+    # list types (P279) of Exoplanets (Q44559) with label and description
+    wdq '?id wdt:P279 wd:Q44559:' --text id --format pretty
 
 # WIKIDATA ONTOLOGY
 
