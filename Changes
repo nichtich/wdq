@@ -1,6 +1,8 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+
+0.4.3  2015-11-14 22:18:06 CET
     - New option text to easily get names and descriptions
     - Show count for pretty format when counting
 
