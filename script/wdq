@@ -676,7 +676,9 @@ if ( $OPT{format} =~ /{[^}]+}/ ) {
 }
 elsif ( $OPT{format} eq 'pretty' ) {
     $OPT{pretty} //=
-        "{id|style=i}{label|style=v|pre=: }"
+      $OPT{count}
+      ? "{count|style=v}"
+      : "{id|style=i}{label|style=v|pre=: }"
       . "{alias|pre= (|post=)|style=v}"
       . "{description|length=78|pre=\n  }";
     $OPT{ids} //= 1;
@@ -726,6 +728,9 @@ sub expand_query {
     # TODO: only in query mode.
     # TODO: test this
     if ( $OPT{text} ) {
+        if ( $OPT{count} ) {
+            warning("Option --text will only slow down --count");
+        }
         my @services;
         foreach my $var ( split /[, ]+/, $OPT{text} ) {
             my $label = $var eq 'id' ? 'label'       : $var . 'Label';
@@ -1307,6 +1312,11 @@ Option C<--format>/C<-f> sets an output format or string template:
 
 Flat JSON without language tags
 
+=item C<pretty> (default in search mode)
+
+Print C<label>, C<alias>, C<id> and C<description> or C<count> when counting.
+Also sets option C<--ids>.
+
 =item C<ldjson>
 
 Line delimited Flat JSON
@@ -1327,11 +1337,6 @@ SPARQL Query Results XML Format
 =item C<json>
 
 SPARQL Query Results JSON Format
-
-=item C<pretty> (default in search mode)
-
-Default string template to print C<label>, C<alias>, C<id>, C<description>.
-Also sets option C<--ids> unless disabled
 
 =item C<...>
 
