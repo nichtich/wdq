@@ -25,6 +25,7 @@ GetOptions(
     'query|q=s',
     'ids|i!',
     'language|g=s',
+    'text|t=s',    # TODO: split into 'label|l=s' and 'description|d=s',
     'enumerate|e!',
     'color|C!',
     'count|c=s',
@@ -329,15 +330,6 @@ if ( version->parse($RDF::Query::VERSION) < version->parse('2.915_01') ) {
         }
         '<' . URI->new( encode_utf8( $self->uri_value ) )->canonical . '>';
       }
-}
-
-sub pretty_sparql {
-    my $sparql = $_[0]->as_sparql;
-    $sparql =~ s/^\s*{}\s*$//mg;                          # BUG IN RDF::Query ?
-    $sparql =~ s/\n$//mg;
-    $sparql =~ s/LANG\(LANG\(\?/LANGMATCHES(LANG(?/mg;    # BUG in RDF::Query
-    $sparql =~ s/\t/    /mg;
-    $sparql;
 }
 
 my $EXPORTER;
@@ -704,6 +696,7 @@ sub expand_query {
 
     my $select = "*";
 
+    # TODO: only in query mode
     if ( $OPT{count} ) {
         fatal("cannot expand query with COUNT") if $query =~ /^\s*SELECT/i;
         $select = "(COUNT(DISTINCT ?$OPT{count}) AS ?count)";
@@ -716,17 +709,71 @@ sub expand_query {
         $query = "SELECT $select WHERE { $query }";
     }
 
+    # LIMIT and OFFSET are always last so we can safely use regexp here
+    if ( $OPT{limit} ) {
+        $query =~ s/\n*LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/$1/sm;
+        $query .= "\nLIMIT $OPT{limit}";
+    }
+
+    my %namespace;
     if ( $OPT{'default-prefixes'} ) {
 
         # Add PREFIX for actually used and known prefixes
-        my %ns;
         my $ps = join '|', keys %NAMESPACES;
-        $ns{$_} = $NAMESPACES{$_} for $query =~ /($ps):[^\/]/mg;
-        my @prefixes = map { "PREFIX $_: <$ns{$_}>" } sort keys %ns;
-        $query = join "\n", @prefixes, $query;
+        $namespace{$_} = $NAMESPACES{$_} for $query =~ /($ps):[^\/]/mg;
     }
 
-    $query;
+    # TODO: only in query mode.
+    # TODO: test this
+    if ( $OPT{text} ) {
+        my @services;
+        foreach my $var ( split /[, ]+/, $OPT{text} ) {
+            my $label = $var eq 'id' ? 'label'       : $var . 'Label';
+            my $descr = $var eq 'id' ? 'description' : $var . 'Description';
+            push @services, <<SPARQL;
+    SERVICE wikibase:label {
+        bd:serviceParam wikibase:language "$OPT{language}" .
+        ?$var rdfs:label ?$label .
+        ?$var schema:description ?$descr .
+    }
+SPARQL
+        }
+
+        my $service = join "\n", @services;
+        $query =~ s/}([^}]*)$/$service}\1/m;
+
+        $namespace{$_} = $NAMESPACES{$_} for qw(bd rdfs schema wikibase);
+    }
+
+    my @prefixes = map { "PREFIX $_: <$namespace{$_}>" } sort keys %namespace;
+    $query = join "\n", @prefixes, $query;
+
+    my $sparql = RDF::Query->new($query);
+    if ( !$sparql ) {
+        if ( $OPT{'force'} ) {
+            warning("SPARQL query seems invalid");
+        }
+        else {
+            warning("invalid SPARQL query");
+            exit 1;
+        }
+    }
+    else {
+        $query = $sparql->as_sparql;
+        $query =~ s/^\s*{}\s*$//mg;                          # BUG IN RDF::Query
+        $query =~ s/\n$//mg;
+        $query =~ s/LANG\(LANG\(\?/LANGMATCHES(LANG(?/mg;    # BUG in RDF::Query
+        $query =~ s/\t/    /mg;
+    }
+
+    if ( $OPT{'no-execute'} ) {
+        say $query;
+        return;
+    }
+
+    return $sparql
+      ? ( $query, [ map { $_->name } @{ $sparql->parsed->{variables} } ] )
+      : ($query);
 }
 
 sub http_get {
@@ -936,52 +983,23 @@ if ( $MODE eq 'query' ) {
     $OPT{query} //= shift @ARGV if @ARGV;
     $OPT{query} //= '-';
 
-    my ( $query, $sparql );
-
-    local $/ = undef;
-    if ( $OPT{query} eq '-' ) {
-        $query = <STDIN>;
-    }
-    elsif ( -f $OPT{query} or $OPT{query} !~ /[$\?\{]/ ) {
-        open my $fh, '<', $OPT{query}
-          or die "failed to open file " . $OPT{query};
-        $query = <$fh>;
-        open my $fh;
-    }
-    else {
-        $query = $OPT{query};
-    }
-
-    $query  = expand_query($query);
-    $sparql = do {
-        my $q = RDF::Query->new($query);
-        unless ($q) {
-            if ( $OPT{'force'} ) {
-                warning("SPARQL query seems invalid");
-                undef;
-            }
-            else {
-                warning("invalid SPARQL query");
-                exit 1;
-            }
+    my $query = do {
+        local $/ = undef;
+        if ( $OPT{query} eq '-' ) {
+            <STDIN>;
+        }
+        elsif ( -f $OPT{query} or $OPT{query} !~ /[$\?\{]/ ) {
+            open my $fh, '<', $OPT{query}
+              or die "failed to open file " . $OPT{query};
+            <$fh>;
+        }
+        else {
+            $OPT{query};
         }
     };
 
-    if ($sparql) {
-        $variables = [ map { $_->name } @{ $sparql->parsed->{variables} } ];
-        $query = pretty_sparql($sparql);
-    }
-
-    # LIMIT and OFFSET are always last so we can safely use regexp here
-    if ( $OPT{limit} ) {
-        $query =~ s/\n*LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/$1/sm;
-        $query .= "\nLIMIT $OPT{limit}";
-    }
-
-    if ( $OPT{'no-execute'} ) {
-        say $query;
-        exit;
-    }
+    ( $query, $variables ) = expand_query($query);
+    exit unless $query;
 
     $iterator = get_sparql($query);
 }
@@ -997,11 +1015,9 @@ elsif ( $MODE eq 'lookup' ) {
         return if $id eq '';      # skip empty lines
 
         my $query = get_lookup_query($id) or return;
-        $query = pretty_sparql( RDF::Query->new( expand_query($query) ) );
-        if ( $OPT{'no-execute'} ) {
-            say $query;
-            return;
-        }
+
+        ($query) = expand_query($query);
+        return unless $query;
 
         my $iterator = get_sparql($query);
         $iterator = postprocess_iterator($iterator);
@@ -1222,6 +1238,11 @@ This option is currentl only used on lookup mode.
 
 Prepend SPARQL QUERY to count distinct values
 
+=item --text|-t VARNAMES
+
+Add label and description for selected entities. Names for entity C<id> are
+C<label>/C<description> or C<xLabel>/C<xDescription> for any C<x>.
+
 =item --ignore
 
 Ignore empty results instead of issuing warning and exit code.
@@ -1384,6 +1405,9 @@ L<miller|http://johnkerl.org/miller/> for processing results.
 
   # count instances (P31) of books (Q571)
   wdq --count x '?x wdt:P31 wd:Q571' --format {count}
+
+  # list types (P279) of Exoplanets (Q44559) with label and description
+  wdq '?id wdt:P279 wd:Q44559:' --text id --format pretty
 
 =head1 WIKIDATA ONTOLOGY
 
