@@ -1384,29 +1384,35 @@ L<miller|http://johnkerl.org/miller/> for processing results.
 
 =head1 EXAMPLES
 
-  # get all parts of the solar system
-  wdq -q '?c wdt:P361 wd:Q544'
-
-  # get all references used at an item
-  wdq -q 'wd:Q1 ?prop [ prov:wasDerivedFrom ?ref ]'
-
-  # get doctoral advisor graph (academic genealogy) as CSV
-  wdq -q '?student wdt:P184 ?advisor' --ids --format csv
-
-  # print expanded SPARQL query 
-  wdq -n -q '?c wdt:P361 wd:Q544'
+  # search "solar system" in English (=> Q544)
+  wdq -g en solar system
   
-  # execute query and return first 10 tab-separated values
-  wdq -f tsv --limit 10 < query
+  # search part-of property (=> P361)
+  wdq psearch -g en part
 
-  # print result as Markdown Table (requires Catmandu::Exporter::Table)
-  wdq --export Table < query
+  # get all parts of the solar system
+  wdq '?c wdt:P361 wd:Q544'
 
   # look up label and description
   wdq Q42 P9
 
   # look up German Wikipedia article and get label description in French
   wdq -g fr http://de.wikipedia.org/wiki/Argon 
+
+  # get all references used at an item
+  wdq 'wd:Q1 ?prop [ prov:wasDerivedFrom ?ref ]'
+
+  # get doctoral advisor graph (academic genealogy) as CSV
+  wdq '?student wdt:P184 ?advisor' --ids --format csv
+
+  # print expanded SPARQL query 
+  wdq -n '?c wdt:P361 wd:Q544'
+  
+  # execute query and return first 10 tab-separated values
+  wdq -f tsv --limit 10 < query
+
+  # print result as Markdown Table (requires Catmandu::Exporter::Table)
+  wdq --export Table < query
 
   # count instances (P31) of books (Q571)
   wdq --count x '?x wdt:P31 wd:Q571' --format {count}
