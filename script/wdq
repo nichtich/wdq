@@ -299,7 +299,7 @@ my $MODE = !@ARGV ? 'query' : do {
 
 # default output format
 $OPT{format} =
-  lc( $OPT{format} // ( $MODE =~ /^p?search$/ ? 'pretty' : 'simple' ) );
+  lc( $OPT{format} // ( $MODE =~ /^p?search$/ ? 'text' : 'simple' ) );
 
 # require only if actually needed
 require RDF::Query;
@@ -661,7 +661,7 @@ my %FORMATS = (
     ),
 
     # format string
-    pretty => App::wdq::Format->new(
+    text => App::wdq::Format->new(
         row => sub {
             my ( $o, $row ) = @_;
             $row = { map { $_ => simple_node( $row->{$_} ) } keys %$row };
@@ -672,9 +672,9 @@ my %FORMATS = (
 
 if ( $OPT{format} =~ /{[^}]+}/ ) {
     $OPT{pretty} = $OPT{format};
-    $OPT{format} = 'pretty';
+    $OPT{format} = 'text';
 }
-elsif ( $OPT{format} eq 'pretty' ) {
+elsif ( $OPT{format} eq 'text' ) {
     $OPT{pretty} //=
       $OPT{count}
       ? "{count|style=v}"
@@ -1199,7 +1199,7 @@ read from environment or option C<--language>/C<-g>:
 
   wdq search -g sv Pippi Långstrump
 
-Default output format in search mode is C<pretty>.
+Default output format in search mode is C<text>.
 
 =head1 OPTIONS
 
@@ -1312,7 +1312,7 @@ Option C<--format>/C<-f> sets an output format or string template:
 
 Flat JSON without language tags
 
-=item C<pretty> (default in search mode)
+=item C<text> (default in search mode)
 
 Print C<label>, C<alias>, C<id> and C<description> or C<count> when counting.
 Also sets option C<--ids>.
@@ -1415,10 +1415,10 @@ L<miller|http://johnkerl.org/miller/> for processing results.
   wdq --export Table < query
 
   # count instances (P31) of books (Q571)
-  wdq --count x '?x wdt:P31 wd:Q571' --format {count}
+  wdq --count x '?x wdt:P31 wd:Q571'
 
   # list types (P279) of Exoplanets (Q44559) with label and description
-  wdq '?id wdt:P279 wd:Q44559:' --text id --format pretty
+  wdq '?id wdt:P279 wd:Q44559:' --text id --format text
 
 =head1 WIKIDATA ONTOLOGY
 

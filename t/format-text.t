@@ -6,7 +6,7 @@ sub wdq {
     system( $^X, qw(script/wdq search --res t/examples/search.json), @_ );
 }
 
-my $pretty = <<PRETTY;
+my $text = <<TEXT;
 Q256503: Ärzte
   Wikimedia-Begriffsklärungsseite
 Q39631: Arzt (Ärzteschaft)
@@ -17,16 +17,16 @@ Q160721: Nürnberger Ärzteprozess (Ärzteprozess)
   Erster der zwölf Nürnberger Nachfolgeprozesse
 Q256664: Ärzteverschwörung
 Q695416: Poliklinik (Ärztehaus)
-PRETTY
+TEXT
 
-stdout_is { wdq() } $pretty, 'pretty by default in search mode';
-stdout_is { wdq('-fpretty') } $pretty, 'pretty explicit';
+stdout_is { wdq() } $text, 'text format by default in search mode';
+stdout_is { wdq('-ftext') } $text, 'text format explicitly';
 
 my $format = '{id}{label|pre==|length=3}{alias|length=14|align=right}';
-stdout_is { wdq( '--format', $format, '-3' ) } <<PRETTY, 'format string';
+stdout_is { wdq( '--format', $format, '-3' ) } <<TEXT, 'format string';
 Q256503=Är…
 Q39631=Ar…   Ärzteschaft
 Q49330=Är…
-PRETTY
+TEXT
 
 done_testing;
