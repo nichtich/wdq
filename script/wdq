@@ -25,7 +25,9 @@ GetOptions(
     'query|q=s',
     'ids|i!',
     'language|g=s',
-    'text|t=s',    # TODO: split into 'label|l=s' and 'description|d=s',
+    'label|l=s',
+    'description|d=s',
+    'text|t=s',
     'enumerate|e!',
     'color|C!',
     'count|c=s',
@@ -727,21 +729,32 @@ sub expand_query {
 
     # TODO: only in query mode.
     # TODO: test this
-    if ( $OPT{text} ) {
+    my %textvar;
+    $textvar{$_}{label}       = 1 for split /,/, $OPT{label};
+    $textvar{$_}{description} = 1 for split /,/, $OPT{description};
+    $textvar{$_}{label} = $textvar{$_}{description} = 1
+      for split /,/, $OPT{text};
+
+    if (%textvar) {
         if ( $OPT{count} ) {
-            warning("Option --text will only slow down --count");
+            warning("Option --text/label/description only slow down --count");
         }
         my @services;
-        foreach my $var ( split /[, ]+/, $OPT{text} ) {
-            my $label = $var eq 'id' ? 'label'       : $var . 'Label';
-            my $descr = $var eq 'id' ? 'description' : $var . 'Description';
-            push @services, <<SPARQL;
+        foreach my $var ( sort keys %textvar ) {
+            my $s = <<SPARQL;
     SERVICE wikibase:label {
         bd:serviceParam wikibase:language "$OPT{language}" .
-        ?$var rdfs:label ?$label .
-        ?$var schema:description ?$descr .
-    }
 SPARQL
+
+            if ( $textvar{$var}{label} ) {
+                my $label = $var eq 'id' ? 'label' : $var . 'Label';
+                $s .= "        ?$var rdfs:label ?$label .\n";
+            }
+            if ( $textvar{$var}{description} ) {
+                my $descr = $var eq 'id' ? 'description' : $var . 'Description';
+                $s .= "        ?$var schema:description ?$descr .\n";
+            }
+            push @services, "$s    }";
         }
 
         my $service = join "\n", @services;
@@ -1239,14 +1252,18 @@ Abbreviate Wikidata identifier URIs as strings.
 Language to query labels and descriptions in. Set to the locale by default.
 This option is currentl only used on lookup mode.
 
-=item --count|-c VARNAME
+=item --count|-c VARS
 
 Prepend SPARQL QUERY to count distinct values
 
-=item --text|-t VARNAMES
+=item --label|-l VARS
 
-Add label and description for selected entities. Names for entity C<id> are
-C<label>/C<description> or C<xLabel>/C<xDescription> for any C<x>.
+=item --description|-d VARS
+
+=item --text|-t VARS
+
+Add label, description, or both. Adds C<label>/C<description> for variable C<id>
+or C<xLabel>/C<xDescription> for any C<x>.
 
 =item --ignore
 

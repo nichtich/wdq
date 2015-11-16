@@ -3,6 +3,7 @@ use Test::More;
 use Test::Output;
 
 sub wdq { system( $^X, 'script/wdq', '-n', @_ ) }
+sub slurp { local (@ARGV,$/) = shift; <> }
 
 my $sparql = <<SPARQL;
 PREFIX wd: <http://www.wikidata.org/entity/>
@@ -31,12 +32,15 @@ stdout_is { wdq( -q => 'SELECT * WHERE { ?a ?b ?c } LIMIT 2', '--limit' => 3 ) }
 stdout_is { wdq( '-53q' => '?a ?b ?c', '--limit' => 6 ) }
 "SELECT * WHERE {\n    ?a ?b ?c .\n}\nLIMIT 3\n", 'limit -3';
 
-stdout_is { wdq( '-ncx', '?x wdt:P31 wd:Q5633421' ) } <<SPARQL, 'count';
+stdout_is { wdq( '-cx', '?x wdt:P31 wd:Q5633421' ) } <<SPARQL, 'count';
 PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
 SELECT (COUNT(DISTINCT ?x) AS ?count) WHERE {
     ?x wdt:P31 wd:Q5633421 .
 }
 SPARQL
+
+stdout_is { wdq( '-lid,x', '-tx', '-gde', '?id ?p ?x' ) }
+    slurp('t/examples/label.sparql'), '--label/description';
 
 done_testing;
