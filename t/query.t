@@ -40,6 +40,10 @@ SELECT (COUNT(DISTINCT ?x) AS ?count) WHERE {
 }
 SPARQL
 
+stdout_is { system( $^X, 'script/wdq', '-cx', '?x wdt:P31 wd:Q5633421', 
+                         '--response', 't/examples/count.json', '-ftext' ) }
+    "63107\n", 'text format for count';
+
 stdout_is { wdq( '-lid,x', '-tx', '-gde', '?id ?p ?x' ) }
     slurp('t/examples/label.sparql'), '--label/description';
 

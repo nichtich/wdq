@@ -1,11 +1,12 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+    - New options "label" and "description"
     - Renamed output format "pretty" to "text"
 
 0.4.3  2015-11-14 22:18:06 CET
     - New option text to easily get names and descriptions
-    - Show count for pretty format when counting
+    - Show count in text format when counting
 
 0.4.2  2015-11-10 15:10:09 CET
     - New option count

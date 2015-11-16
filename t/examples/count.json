@@ -1,0 +1,13 @@
+{
+  "head": {
+    "vars": ["count"]
+  },
+  "results": {
+    "bindings": [ {
+      "count": {
+        "type": "literal",
+        "value": "63107"
+      }
+    } ]
+  }
+}
