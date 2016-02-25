@@ -215,7 +215,6 @@ s/( (name|value|identifier|title|error))/$COLORS{substr $2, 0,1}.$1."\e[0m"/mge;
         $help =~ s/ ([A-Z][A-Za-z]+)/" ".cBold($1)/mge;
         $help =~ s/ ([a-z]+:([a-zA-Z_]+)?|[a-z][a-zA-Z]+)/" ".cName($1)/mge;
         $help =~ s/(@[a-z_]+)/cIdentifier($1)/mge;
-        print $help;
     }
     elsif ( $topic =~ /^opt(ions?)?$/ ) {
         $help = pod_text( -sections => ['OPTIONS'] );
