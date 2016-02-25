@@ -30,6 +30,7 @@ GetOptions(
     'text|t=s',
     'enumerate|e!',
     'color|C!',
+    'monochrome|M',
     'count|c=s',
     'header!', 'H!',
     'no-execute|n!',
@@ -44,6 +45,7 @@ GetOptions(
 ) or exit 1;
 
 # use color by default if output is terminal
+$OPT{color} = 0 if $OPT{monochrome};
 $OPT{color_stderr} = $OPT{color} // -t STDERR;    ## no critic
 $OPT{color} //= -t STDOUT;                        ## no critic
 
@@ -191,12 +193,14 @@ if ( @ARGV and $ARGV[0] eq 'help' ) {
     elsif ( $topic =~ /^out(put)?$/ ) {
         $help = pod_text( -sections => ['OUTPUT'] );
         $help =~
-s/( (name|value|identifier|title|error))/$COLORS{substr $2, 0,1}.$1."\e[0m"/mge;
+s/( (name|value|identifier|title|error))/$COLORS{substr $2, 0,1}.$1."\e[0m"/mge
+          if $OPT{color};
     }
     elsif ( $topic eq 'pretty' ) {
         $help = pod_text( -sections => ['OUTPUT/Pretty'] );
         $help =~
-s/( (name|value|identifier|title|error))/$COLORS{substr $2, 0,1}.$1."\e[0m"/mge;
+s/( (name|value|identifier|title|error))/$COLORS{substr $2, 0,1}.$1."\e[0m"/mge
+          if $OPT{color};
     }
     elsif ( $topic =~ /^formats?$/ ) {
         $help = pod_text( -sections => ['OUTPUT/Formats'] );
@@ -1271,7 +1275,7 @@ Ignore empty results instead of issuing warning and exit code.
 =item --color|-C
 
 By default output is colored if writing to a terminal. Disable this with
-C<--no-color> or force color with C<--color> or C<-C>.
+C<--no-color>, C<--monochrome>, or C<-M>. Force color with C<--color> or C<-C>.
 
 =item --api URL
 
