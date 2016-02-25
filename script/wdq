@@ -1439,51 +1439,51 @@ L<miller|http://johnkerl.org/miller/> for processing results.
 =head1 WIKIDATA ONTOLOGY
 
   Entity (item/property)
-   wd:Q_ <-- owl:sameAs --> wd:Q_
-         --> rdfs:label, skos:altLabel, schema:description "_"@_
+   wd:Q* <-- owl:sameAs --> wd:Q*
+         --> rdfs:label, skos:altLabel, schema:description "*"@*
          --> schema:dateModified, schema:version
-         --> wdt:P_ "_", URI, _:blank
-         --> p:P_ Statement
+         --> wdt:P* "*", URI, _:blank
+         --> p:P* Statement
 
   Item
-   wd:Q_ <-- schema:about <http://_.wikipedia.org/wiki/_>
-                          --> schema:inLanguage, wikibase:badge
+   wd:Q* <-- schema:about <http://*.wikipedia.org/wiki/*>
+                            --> schema:inLanguage, wikibase:badge
 
   Property
-   wd:P_ --> wikibase:propertyType PropertyType
-         --> wkibase:directClaim        wdt:P_
-         --> wikibase:claim             p:P_
-         --> wikibase:statementProperty ps:P_
-         --> wikibase:statementValue    psv:P_
-         --> wikibase:qualifier         pq:P_
-         --> wikibase:qualifierValue    pqv:P_
-         --> wikibase:reference         pr:P_
-         --> wikibase:referenceValue    prv:P_
-         --> wikibase:novalue           wdno:P_
+   wd:P* --> wikibase:propertyType PropertyType
+         --> wkibase:directClaim        wdt:P*
+         --> wikibase:claim             p:P*
+         --> wikibase:statementProperty ps:P*
+         --> wikibase:statementValue    psv:P*
+         --> wikibase:qualifier         pq:P*
+         --> wikibase:qualifierValue    pqv:P*
+         --> wikibase:reference         pr:P*
+         --> wikibase:referenceValue    prv:P*
+         --> wikibase:novalue           wdno:P*
 
   PropertyType
-   wikibase: String, Url, WikibaseItem, WikibaseProperty, CommonsMedia,
-             Monolingualtext, GlobeCoordinate, Quantity, Time
+   wikibase: String, Url, WikibaseItem, WikibaseProperty, CommonsMedia, Math,
+             Monolingualtext, GlobeCoordinate, Quantity, Time, ExternalId
 
 
   Statement
-   wds:_ --> wikibase:rank Rank
-         --> a wdno:P_
-         --> ps:P_ "_", URI, _:blank
-         --> psv:P_ Value
-         --> pq:P_ "_", URI, _:blank
-         --> pqv:P_ Value
+   wds:* --> wikibase:rank Rank
+         --> a wdno:P*
+         --> ps:P* "*", URI, _:blank
+         --> psv:P* Value
+         --> pq:P* "*", URI, _:blank
+         --> pqv:P* Value
          --> prov:wasDerivedFrom Reference
 
   Reference
-   wdref:_ --> pr:P_ "_", URI
-           --> prv:P_ Value
+   wdref:* --> pr:P* "*", URI
+           --> prv:P* Value
 
   Rank
    wikibase: NormalRank, PreferredRank, DeprecatedRank, BestRank
 
   Value (GlobecoordinateValue/QuantityValue/TimeValue)
-   wdv:_ --> wikibase: geoLatitude, geoLongitude, geoPrecision, geoGlobe URI
+   wdv:* --> wikibase: geoLatitude, geoLongitude, geoPrecision, geoGlobe URI
          --> wikibase: timeValue, timePrecision, timeTimezone, timeCalendarModel
          --> wikibase: quantityAmount, quantityUpperBound, quantityLowerBound,
                        quantityUnit URI
