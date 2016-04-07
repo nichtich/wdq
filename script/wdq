@@ -303,8 +303,23 @@ my $MODE = !@ARGV ? 'query' : do {
 };
 
 # default output format
-$OPT{format} =
-  lc( $OPT{format} // ( $MODE =~ /^p?search$/ ? 'text' : 'simple' ) );
+if ( $OPT{format} =~ /{[^}]+}/ ) {
+    $OPT{pretty} = $OPT{format};
+    $OPT{format} = 'text';
+}
+else {
+    $OPT{format} =
+      lc( $OPT{format} // ( $MODE =~ /^p?search$/ ? 'text' : 'simple' ) );
+    if ( $OPT{format} eq 'text' ) {
+        $OPT{pretty} //=
+          $OPT{count}
+          ? "{count|style=v}"
+          : "{id|style=i}{label|style=v|pre=: }"
+          . "{alias|pre= (|post=)|style=v}"
+          . "{description|length=78|pre=\n  }";
+        $OPT{ids} //= 1;
+    }
+}
 
 # require only if actually needed
 require RDF::Query;
@@ -674,20 +689,6 @@ my %FORMATS = (
         }
     ),
 );
-
-if ( $OPT{format} =~ /{[^}]+}/ ) {
-    $OPT{pretty} = $OPT{format};
-    $OPT{format} = 'text';
-}
-elsif ( $OPT{format} eq 'text' ) {
-    $OPT{pretty} //=
-      $OPT{count}
-      ? "{count|style=v}"
-      : "{id|style=i}{label|style=v|pre=: }"
-      . "{alias|pre= (|post=)|style=v}"
-      . "{description|length=78|pre=\n  }";
-    $OPT{ids} //= 1;
-}
 
 if ( $MODE =~ /^p?search$/ ) {
     $OPT{ids} //= 1;
@@ -1149,7 +1150,7 @@ The command line script C<wdq>, included in CPAN module L<App::wdq>, provides a
 tool to access L<Wikidata Query Service|https://query.wikidata.org/>. It
 supports formulation and execution of L<SPARQL SELECT
 queries|http://www.w3.org/TR/sparql11-query/#select> to extract selected
-information from Wikidata or other Wikibase instances. 
+information from Wikidata or other Wikibase instances.
 
 =head1 INSTALLATION
 
@@ -1183,13 +1184,13 @@ place in your C<$PATH>:
   wget https://github.com/nichtich/wdq/raw/master/script/wdq
   chmod +x wdq
 
-The latter method will not install this documentation. 
+The latter method will not install this documentation.
 
 
 =head1 MODES
 
 Request mode C<query> (default), C<lookup>, C<serch>, or C<psearch> can
-explicitly be set via first argument or it's guessed from arguments. 
+explicitly be set via first argument or it's guessed from arguments.
 
 =head2 query
 
@@ -1210,7 +1211,7 @@ arguments. Result fields are C<label>, C<description>, and C<id>:
   wdq lookup Q1                                 # equivalent
   echo Q1 | wdq lookup                          # equivalent
   wdq http://de.wikipedia.org/wiki/Universum    # same result
- 
+
 =encoding utf8
 
 =head2 search / psearch
@@ -1412,7 +1413,7 @@ L<miller|http://johnkerl.org/miller/> for processing results.
 
   # search "solar system" in English (=> Q544)
   wdq -g en solar system
-  
+
   # search part-of property (=> P361)
   wdq psearch -g en part
 
@@ -1423,7 +1424,7 @@ L<miller|http://johnkerl.org/miller/> for processing results.
   wdq Q42 P9
 
   # look up German Wikipedia article and get label description in French
-  wdq -g fr http://de.wikipedia.org/wiki/Argon 
+  wdq -g fr http://de.wikipedia.org/wiki/Argon
 
   # get all references used at an item
   wdq 'wd:Q1 ?prop [ prov:wasDerivedFrom ?ref ]'
@@ -1431,9 +1432,9 @@ L<miller|http://johnkerl.org/miller/> for processing results.
   # get doctoral advisor graph (academic genealogy) as CSV
   wdq '?student wdt:P184 ?advisor' --ids --format csv
 
-  # print expanded SPARQL query 
+  # print expanded SPARQL query
   wdq -n '?c wdt:P361 wd:Q544'
-  
+
   # execute query and return first 10 tab-separated values
   wdq -f tsv --limit 10 < query
 
