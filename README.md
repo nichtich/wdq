@@ -35,7 +35,7 @@ The command line script `wdq`, included in CPAN module [App::wdq](https://metacp
 tool to access [Wikidata Query Service](https://query.wikidata.org/). It
 supports formulation and execution of [SPARQL SELECT
 queries](http://www.w3.org/TR/sparql11-query/#select) to extract selected
-information from Wikidata or other Wikibase instances. 
+information from Wikidata or other Wikibase instances.
 
 # INSTALLATION
 
@@ -69,12 +69,12 @@ place in your `$PATH`:
     wget https://github.com/nichtich/wdq/raw/master/script/wdq
     chmod +x wdq
 
-The latter method will not install this documentation. 
+The latter method will not install this documentation.
 
 # MODES
 
 Request mode `query` (default), `lookup`, `serch`, or `psearch` can
-explicitly be set via first argument or it's guessed from arguments. 
+explicitly be set via first argument or it's guessed from arguments.
 
 ## query
 
@@ -91,11 +91,10 @@ definitions and `SELECT` clause are added if missing.
 Read Wikidata entity ids, URLs, or Wikimedia project URLs from STDIN or
 arguments. Result fields are `label`, `description`, and `id`:
 
-     wdq Q1
-     wdq lookup Q1                                 # equivalent
-     echo Q1 | wdq lookup                          # equivalent
-     wdq http://de.wikipedia.org/wiki/Universum    # same result
-    
+    wdq Q1
+    wdq lookup Q1                                 # equivalent
+    echo Q1 | wdq lookup                          # equivalent
+    wdq http://de.wikipedia.org/wiki/Universum    # same result
 
 ## search / psearch
 
@@ -105,7 +104,7 @@ read from environment or option `--language`/`-g`:
 
     wdq search -g sv Pippi Långstrump
 
-Default output format in search mode is `pretty`.
+Default output format in search mode is `text`.
 
 # OPTIONS
 
@@ -143,14 +142,16 @@ Default output format in search mode is `pretty`.
     Language to query labels and descriptions in. Set to the locale by default.
     This option is currentl only used on lookup mode.
 
-- --count|-c VARNAME
+- --count|-c VARS
 
     Prepend SPARQL QUERY to count distinct values
 
-- --text|-t VARNAMES
+- --label|-l VARS
+- --description|-d VARS
+- --text|-t VARS
 
-    Add label and description for selected entities. Names for entity `id` are
-    `label`/`description` or `xLabel`/`xDescription` for any `x`.
+    Add label, description, or both. Adds `label`/`description` for variable `id`
+    or `xLabel`/`xDescription` for any `x`.
 
 - --ignore
 
@@ -159,7 +160,7 @@ Default output format in search mode is `pretty`.
 - --color|-C
 
     By default output is colored if writing to a terminal. Disable this with
-    `--no-color` or force color with `--color` or `-C`.
+    `--no-color`, `--monochrome`, or `-M`. Force color with `--color` or `-C`.
 
 - --api URL
 
@@ -212,7 +213,7 @@ Option `--format`/`-f` sets an output format or string template:
 
     Flat JSON without language tags
 
-- `pretty` (default in search mode)
+- `text` (default in search mode)
 
     Print `label`, `alias`, `id` and `description` or `count` when counting.
     Also sets option `--ids`.
@@ -278,84 +279,90 @@ also tools such as [jq](http://stedolan.github.io/jq/) and
 
 # EXAMPLES
 
+    # search "solar system" in English (=> Q544)
+    wdq -g en solar system
+
+    # search part-of property (=> P361)
+    wdq psearch -g en part
+
     # get all parts of the solar system
-    wdq -q '?c wdt:P361 wd:Q544'
+    wdq '?c wdt:P361 wd:Q544'
+
+    # look up label and description
+    wdq Q42 P9
+
+    # look up German Wikipedia article and get label description in French
+    wdq -g fr http://de.wikipedia.org/wiki/Argon
 
     # get all references used at an item
-    wdq -q 'wd:Q1 ?prop [ prov:wasDerivedFrom ?ref ]'
+    wdq 'wd:Q1 ?prop [ prov:wasDerivedFrom ?ref ]'
 
     # get doctoral advisor graph (academic genealogy) as CSV
-    wdq -q '?student wdt:P184 ?advisor' --ids --format csv
+    wdq '?student wdt:P184 ?advisor' --ids --format csv
 
-    # print expanded SPARQL query 
-    wdq -n -q '?c wdt:P361 wd:Q544'
-    
+    # print expanded SPARQL query
+    wdq -n '?c wdt:P361 wd:Q544'
+
     # execute query and return first 10 tab-separated values
     wdq -f tsv --limit 10 < query
 
     # print result as Markdown Table (requires Catmandu::Exporter::Table)
     wdq --export Table < query
 
-    # look up label and description
-    wdq Q42 P9
-
-    # look up German Wikipedia article and get label description in French
-    wdq -g fr http://de.wikipedia.org/wiki/Argon 
-
     # count instances (P31) of books (Q571)
-    wdq --count x '?x wdt:P31 wd:Q571' --format {count}
+    wdq --count x '?x wdt:P31 wd:Q571'
 
     # list types (P279) of Exoplanets (Q44559) with label and description
-    wdq '?id wdt:P279 wd:Q44559:' --text id --format pretty
+    wdq '?id wdt:P279 wd:Q44559:' --text id --format text
 
 # WIKIDATA ONTOLOGY
 
     Entity (item/property)
-     wd:Q_ <-- owl:sameAs --> wd:Q_
-           --> rdfs:label, skos:altLabel, schema:description "_"@_
+     wd:Q* <-- owl:sameAs --> wd:Q*
+           --> rdfs:label, skos:altLabel, schema:description "*"@*
            --> schema:dateModified, schema:version
-           --> wdt:P_ "_", URI, _:blank
-           --> p:P_ Statement
+           --> wdt:P* "*", URI, _:blank
+           --> p:P* Statement
 
     Item
-     wd:Q_ <-- schema:about <http://_.wikipedia.org/wiki/_>
-                            --> schema:inLanguage, wikibase:badge
+     wd:Q* <-- schema:about <http://*.wikipedia.org/wiki/*>
+                              --> schema:inLanguage, wikibase:badge
 
     Property
-     wd:P_ --> wikibase:propertyType PropertyType
-           --> wkibase:directClaim        wdt:P_
-           --> wikibase:claim             p:P_
-           --> wikibase:statementProperty ps:P_
-           --> wikibase:statementValue    psv:P_
-           --> wikibase:qualifier         pq:P_
-           --> wikibase:qualifierValue    pqv:P_
-           --> wikibase:reference         pr:P_
-           --> wikibase:referenceValue    prv:P_
-           --> wikibase:novalue           wdno:P_
+     wd:P* --> wikibase:propertyType PropertyType
+           --> wkibase:directClaim        wdt:P*
+           --> wikibase:claim             p:P*
+           --> wikibase:statementProperty ps:P*
+           --> wikibase:statementValue    psv:P*
+           --> wikibase:qualifier         pq:P*
+           --> wikibase:qualifierValue    pqv:P*
+           --> wikibase:reference         pr:P*
+           --> wikibase:referenceValue    prv:P*
+           --> wikibase:novalue           wdno:P*
 
     PropertyType
-     wikibase: String, Url, WikibaseItem, WikibaseProperty, CommonsMedia,
-               Monolingualtext, GlobeCoordinate, Quantity, Time
+     wikibase: String, Url, WikibaseItem, WikibaseProperty, CommonsMedia, Math,
+               Monolingualtext, GlobeCoordinate, Quantity, Time, ExternalId
 
 
     Statement
-     wds:_ --> wikibase:rank Rank
-           --> a wdno:P_
-           --> ps:P_ "_", URI, _:blank
-           --> psv:P_ Value
-           --> pq:P_ "_", URI, _:blank
-           --> pqv:P_ Value
+     wds:* --> wikibase:rank Rank
+           --> a wdno:P*
+           --> ps:P* "*", URI, _:blank
+           --> psv:P* Value
+           --> pq:P* "*", URI, _:blank
+           --> pqv:P* Value
            --> prov:wasDerivedFrom Reference
 
     Reference
-     wdref:_ --> pr:P_ "_", URI
-             --> prv:P_ Value
+     wdref:* --> pr:P* "*", URI
+             --> prv:P* Value
 
     Rank
      wikibase: NormalRank, PreferredRank, DeprecatedRank, BestRank
 
     Value (GlobecoordinateValue/QuantityValue/TimeValue)
-     wdv:_ --> wikibase: geoLatitude, geoLongitude, geoPrecision, geoGlobe URI
+     wdv:* --> wikibase: geoLatitude, geoLongitude, geoPrecision, geoGlobe URI
            --> wikibase: timeValue, timePrecision, timeTimezone, timeCalendarModel
            --> wikibase: quantityAmount, quantityUpperBound, quantityLowerBound,
                          quantityUnit URI

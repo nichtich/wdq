@@ -6,7 +6,7 @@ use Scalar::Util qw(blessed);
 use Encode qw(decode_utf8 encode_utf8);
 use JSON;
 
-our $VERSION = '0.4.3';
+our $VERSION = '0.4.4';
 
 # Assume everything outside is UTF-8
 binmode( STDIN,  ":encoding(UTF-8)" );
