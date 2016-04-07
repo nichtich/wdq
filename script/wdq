@@ -25,9 +25,9 @@ GetOptions(
     'query|q=s',
     'ids|i!',
     'language|g=s',
-    'label|l=s',
-    'description|d=s',
-    'text|t=s',
+    'label|l=s@',
+    'description|d=s@',
+    'text|t=s@',
     'enumerate|e!',
     'color|C!',
     'monochrome|M',
@@ -733,10 +733,16 @@ sub expand_query {
     # TODO: only in query mode.
     # TODO: test this
     my %textvar;
-    $textvar{$_}{label}       = 1 for split /,/, $OPT{label};
-    $textvar{$_}{description} = 1 for split /,/, $OPT{description};
-    $textvar{$_}{label} = $textvar{$_}{description} = 1
-      for split /,/, $OPT{text};
+
+    # allow repeated and/or comma/space separated argument
+    foreach my $field (qw(label description text)) {
+        $OPT{$field} =
+          [ map { split /\s*,\s*|\s+/, $_ } @{ $OPT{$field} // [] } ];
+    }
+
+    $textvar{$_}{label}       = 1 for @{ $OPT{label} };
+    $textvar{$_}{description} = 1 for @{ $OPT{description} };
+    $textvar{$_}{label} = $textvar{$_}{description} = 1 for @{ $OPT{text} };
 
     if (%textvar) {
         if ( $OPT{count} ) {
