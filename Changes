@@ -1,6 +1,8 @@
 Revision history for App-wdq
 
 {{$NEXT}}
+
+0.4.4  2016-04-07 10:26:33 CEST
     - New options "label", "description", and "monochrome"
     - Allow repeated options label, description, and text
     - Renamed output format "pretty" to "text"
