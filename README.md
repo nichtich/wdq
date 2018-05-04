@@ -313,7 +313,7 @@ also tools such as [jq](http://stedolan.github.io/jq/) and
     wdq --count x '?x wdt:P31 wd:Q571'
 
     # list types (P279) of Exoplanets (Q44559) with label and description
-    wdq '?id wdt:P279 wd:Q44559:' --text id --format text
+    wdq '?id wdt:P279 wd:Q44559' --text id --format text
 
 # WIKIDATA ONTOLOGY
 
