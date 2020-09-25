@@ -66,7 +66,7 @@ Install dependencies as prebuild packages for your operating system:
 Then install `wdq` from CPAN as described above or copy the script to some
 place in your `$PATH`:
 
-    wget https://github.com/nichtich/wdq/blob/main/script/wdq
+    wget https://raw.githubusercontent.com/nichtich/wdq/main/script/wdq
     chmod +x wdq
 
 The latter method will not install this documentation.
